@@ -1,0 +1,28 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+backend/.cache/
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Data and outputs (never commit FITS or large files)
+*.fits
+/data/
+/outputs/
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+.vercel/
+
+# OS / editors
+.DS_Store
+Thumbs.db
