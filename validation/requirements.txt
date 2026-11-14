@@ -1,0 +1,7 @@
+# Validation environment: notebooks that check every backend function against reference tools.
+# Installs the backend itself (editable), so notebooks can import app.* and compare.
+-e ../backend
+jupyterlab>=4.2
+ipykernel>=6.29
+matplotlib>=3.9
+pandas>=2.2
