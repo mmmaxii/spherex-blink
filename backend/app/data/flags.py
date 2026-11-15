@@ -23,6 +23,13 @@ EXCLUDE_FOR_PHOTOMETRY = (
     "SATELLITE_HALO",
 )
 
+# Flags of the detector itself (dead, hot or cold pixels), not of the sky. They are isolated pixels
+# at a fixed place on the detector, so a stack of several images would keep them. The other flags
+# of the recipe mostly sit on and around stars (HALO, SUR_ERROR, BLOOM, and PERSIST when two
+# exposures point almost the same way) and hold real starlight. Stacks hide only these
+# (imaging/stack.py explains why).
+DETECTOR_DEFECTS = ("NONFUNC", "MISSING_DATA", "HOT", "COLD")
+
 
 def bit_names(flags_header) -> dict[int, str]:
     """{bit index: name} from the MSKNnnnn keys of the FLAGS header.

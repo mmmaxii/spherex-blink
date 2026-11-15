@@ -67,7 +67,6 @@ class Settings(BaseSettings):
     output_oversample: int = 2  # output grid pixel = 6.15" / this (the PSF is undersampled)
     reproject_method: Literal["interp", "exact"] = "interp"  # "exact" conserves flux, slower
     min_coverage_fraction: float = 0.3  # images covering less of the field are skipped
-    stack_sigma_clip: float = 3.0
     mask_grow_px: int = 1  # flagged pixels are hidden together with this many neighbours
     gif_frame_ms: int = 600
 

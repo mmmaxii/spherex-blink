@@ -6,7 +6,7 @@ Steps (each one is a function in data/ or imaging/):
   3. read       a cutout of each image straight from S3, with its flags             data/l2.py
   4. background median level of each cutout removed (zodiacal light)                imaging/background.py
   5. align      every cutout onto one north-up grid centred on the position         imaging/align.py
-  6. stack      one stack per survey pass + one of everything; pass − first pass    imaging/stack.py
+  6. stack      median per survey pass + of everything; pass − reference pass        imaging/stack.py
   7. render     PNG per frame with a common scale, flag overlays, GIF               imaging/render.py
 
 The result (manifest) lists every file with its date, wavelength and quality information.
@@ -34,7 +34,7 @@ from ..imaging.grid import Grid, make_grid, to_fraction
 from .common import for_each_image, mjd_to_iso, read_cutout_with_retries, start_job, weekly_tag
 
 KIND = "blink"
-PIPELINE_VERSION = "4"  # raise it when the output changes, so stored products are not reused
+PIPELINE_VERSION = "5"  # raise it when the output changes, so stored products are not reused
 
 NOTES = [
     "Each image had its median level subtracted (zodiacal light) so frames can be compared.",
@@ -44,8 +44,13 @@ NOTES = [
     "measurements); 'Paint flags' shows where they are and the unmasked images are available too.",
     "Images of one detector see the position at different wavelengths: a change of brightness "
     "between frames can come from the wavelength, not from time. Check the wavelength of each frame.",
-    "Stacks are sigma-clipped means of the images of a survey pass, without flagged pixels.",
-    "Differences are a pass stack minus the first pass stack (mid-gray = no change).",
+    "Stacks are the per-pixel median of the images of a survey pass. Only detector defects (dead, "
+    "hot, cold pixels) are hidden: hiding every flagged pixel image by image left "
+    "patches around stars in the differences, and the median already removes what appears in only "
+    "one image (cosmic rays).",
+    "Differences are a pass stack minus the reference pass stack (mid-gray = no change). The "
+    "reference is the first pass with at least 3 images: a single image carries all its oddities "
+    "(background, cosmic rays) into every difference.",
 ]
 
 
@@ -77,6 +82,7 @@ class _Frame:
     ref: sia.ImageRef
     clean: np.ndarray  # background-subtracted, flagged pixels hidden (NaN), on the grid
     raw: np.ndarray  # background-subtracted, everything the detector recorded, on the grid
+    stackable: np.ndarray  # like raw, with only detector defects hidden: for stacks and sums
     bad: np.ndarray  # flagged pixels (official recipe), on the grid
     noise: float
     info: dict[str, Any]
@@ -112,6 +118,8 @@ def _load_frame(ref: sia.ImageRef, params: BlinkParams, grid: Grid, half_size_px
     if coverage < s.min_coverage_fraction:
         raise l2.FrameSkipped(f"covers only {coverage:.0%} of the field")
     clean = align(np.where(hidden, np.nan, image), cutout.wcs, grid)
+    defects = flaglib.bad_mask(cutout.flags, cutout.flag_bits, exclude=flaglib.DETECTOR_DEFECTS)
+    stackable = align(np.where(defects, np.nan, image), cutout.wcs, grid)
     bad_on_grid = align_mask(bad, cutout.wcs, grid)
 
     target_ra, target_dec = target_position(params, cutout.mjd)
@@ -142,7 +150,16 @@ def _load_frame(ref: sia.ImageRef, params: BlinkParams, grid: Grid, half_size_px
         "processing_version": cutout.pipeline_version,
         "file_url": l2.s3_url(ref),
     }
-    return _Frame(ref, clean, raw, bad_on_grid, noise, info)
+    return _Frame(ref, clean, raw, stackable, bad_on_grid, noise, info)
+
+
+def _reference_pass(images_per_pass: dict[int, int], min_images: int = 3) -> int:
+    """Pass the others are compared with: the first one with at least `min_images` images (the
+    median of fewer cannot remove a cosmic ray), or the one with most images if none has that many."""
+    for pass_index in sorted(images_per_pass):
+        if images_per_pass[pass_index] >= min_images:
+            return pass_index
+    return max(images_per_pass, key=images_per_pass.get)
 
 
 def _stack_info(
@@ -216,7 +233,7 @@ def run(params: BlinkParams, progress: Progress) -> dict[str, Any]:
         render.save_frame(picture, stretch, folder / f"frame_{index:03d}.png")
         render.save_frame(frame.raw, stretch, folder / f"raw_{index:03d}.png")
         render.save_mask(frame.bad, folder / f"flags_{index:03d}.png")
-        render.save_values(frame.clean, folder / f"data_{index:03d}.bin")  # for "Add / subtract"
+        render.save_values(frame.stackable, folder / f"data_{index:03d}.bin")  # for "Add / subtract"
         frame.info = {
             "index": index,
             "url": store.url(KIND, key, f"frame_{index:03d}.png"),
@@ -230,27 +247,28 @@ def run(params: BlinkParams, progress: Progress) -> dict[str, Any]:
     stacks, stack_data = [], {}
     for pass_index in sorted({f.ref.pass_index for f in frames}):
         members = [f for f in frames if f.ref.pass_index == pass_index]
-        stack_data[pass_index] = stacking.stack([f.clean for f in members])
+        stack_data[pass_index] = stacking.stack([f.stackable for f in members])
         name = f"stack_pass_{pass_index:02d}.png"
         render.save_frame(stack_data[pass_index], stretch, folder / name)
         stacks.append(_stack_info(members, params, grid, store.url(KIND, key, name), pass_index))
-    render.save_frame(stacking.stack([f.clean for f in frames]), stretch, folder / "stack_all.png")
+    render.save_frame(stacking.stack([f.stackable for f in frames]), stretch, folder / "stack_all.png")
     stack_all = _stack_info(frames, params, grid, store.url(KIND, key, "stack_all.png"), None)
 
-    # Each later pass minus the first one: what appeared, vanished or moved in between.
+    # Each pass minus the reference pass: what appeared, vanished or moved in between.
     differences = []
-    first = min(stack_data)
+    sizes = {index: sum(f.ref.pass_index == index for f in frames) for index in stack_data}
+    reference = _reference_pass(sizes)
     for pass_index in sorted(stack_data):
-        if pass_index == first:
+        if pass_index == reference:
             continue
         name = f"difference_pass_{pass_index:02d}.png"
         limit = render.save_difference(
-            stacking.difference(stack_data[pass_index], stack_data[first]), folder / name
+            stacking.difference(stack_data[pass_index], stack_data[reference]), folder / name
         )
         differences.append(
             {
                 "pass_index": pass_index,
-                "reference_pass_index": first,
+                "reference_pass_index": reference,
                 "url": store.url(KIND, key, name),
                 "limit_mjysr": round(limit, 5),
             }

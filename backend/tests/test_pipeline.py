@@ -147,4 +147,10 @@ def test_frames_come_with_their_values_for_adding_and_subtracting(monkeypatch):
     assert values.size == grid["width_px"] * grid["height_px"]
     picture = np.asarray(Image.open(get_product_store().file("blink", manifest["key"], "frame_000.png")))
     assert picture.shape[:2] == (grid["height_px"], grid["width_px"])  # same orientation and size
-    assert np.isnan(values).any() and np.isfinite(values).sum() > 0.5 * values.size  # flagged = NaN
+    assert np.isnan(values).any() and np.isfinite(values).sum() > 0.5 * values.size  # defects = NaN
+
+
+def test_the_reference_pass_has_enough_images_to_remove_cosmic_rays():
+    assert blink._reference_pass({0: 8, 1: 8}) == 0
+    assert blink._reference_pass({0: 1, 1: 12, 2: 9}) == 1  # one image cannot be the reference
+    assert blink._reference_pass({0: 2, 1: 1}) == 0  # none has 3: the one with most images

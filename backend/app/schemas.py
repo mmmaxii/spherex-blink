@@ -112,7 +112,7 @@ class FrameInfo(BaseModel):
     flags_url: str = Field(description="Transparent PNG with the pixels the official recipe excludes.")
     data_url: str = Field(
         description="Aligned values (MJy/sr, background removed), north up, little-endian float16, "
-        "grid.width_px x grid.height_px; NaN = no data or flagged. Used to add or subtract frames."
+        "grid.width_px x grid.height_px; NaN = no data or a detector defect. Used to add or subtract frames."
     )
     obs_id: str
     collection: str
@@ -158,7 +158,7 @@ class StackInfo(BaseModel):
 
 
 class DifferenceInfo(BaseModel):
-    """A pass stack minus the first pass stack."""
+    """A pass stack minus the reference pass stack (the first pass with 3 or more images)."""
 
     pass_index: int
     reference_pass_index: int
