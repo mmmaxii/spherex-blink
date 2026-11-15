@@ -30,6 +30,7 @@ SERVICE_NAMES = {
     "s3-calibration": "The SPHEREx data store (AWS S3)",
     "cds-sesame": "The CDS name resolver (Sesame)",
     "esa-gaia": "The ESA Gaia archive",
+    "s3-images": "The SPHEREx image store (AWS S3)",
 }
 
 _client: httpx.Client | None = None
@@ -71,9 +72,15 @@ Params = Mapping[str, Any] | Sequence[tuple[str, Any]]
 
 
 def fetch(
-    service: str, url: str, *, params: Params | None = None, tries: int | None = None
+    service: str,
+    url: str,
+    *,
+    params: Params | None = None,
+    tries: int | None = None,
+    headers: Mapping[str, str] | None = None,
 ) -> httpx.Response:
-    """GET with retries. `service` is a short name used in logs and error messages."""
+    """GET with retries. `service` is a short name used in logs and error messages; `headers`
+    is used for byte ranges of S3 files (Range: bytes=start-end)."""
     s = get_settings()
     tries = tries or s.http_tries
     last: Exception | None = None
@@ -81,7 +88,7 @@ def fetch(
     for attempt in range(1, tries + 1):
         try:
             with _limit_for(service):
-                response = get_client().get(url, params=params)
+                response = get_client().get(url, params=params, headers=headers)
             if response.status_code not in RETRY_STATUS:
                 if response.status_code >= 400:
                     raise UpstreamError(
@@ -112,3 +119,9 @@ def fetch(
 
 def fetch_text(service: str, url: str, *, params: Params | None = None, tries: int | None = None) -> str:
     return fetch(service, url, params=params, tries=tries).text
+
+
+def fetch_range(service: str, url: str, start: int, stop: int, *, tries: int | None = None) -> bytes:
+    """Bytes start..stop-1 of a file (HTTP Range), with the same retries as `fetch`."""
+    response = fetch(service, url, headers={"Range": f"bytes={start}-{stop - 1}"}, tries=tries)
+    return response.content
