@@ -125,3 +125,19 @@ def test_a_saturated_target_gets_a_clear_sentence():
     assert why_no_spectrum(1, 10, [{"reason": "position outside the detector"}] * 9).startswith(
         "Only 1 of 10"
     )
+
+
+def test_aperture_weights_add_up_to_the_circle_area_and_the_ring_has_the_right_pixels():
+    from app.spectra.aperture import annulus_mask, circle_weights
+
+    for x, y, r in [(12.0, 12.0, 2.5), (12.37, 11.81, 2.5), (10.5, 13.5, 3.2), (12.2, 12.9, 0.6)]:
+        weights = circle_weights((25, 25), x, y, r)
+        assert weights.sum() == pytest.approx(math.pi * r * r, abs=1e-12)
+        assert weights.min() >= 0 and weights.max() <= 1
+    # A circle centred on a pixel: the centre pixel and its four neighbours are whole at r = 2.5,
+    # and the weights are symmetric.
+    weights = circle_weights((25, 25), 12.0, 12.0, 2.5)
+    assert weights[12, 12] == weights[12, 13] == weights[13, 12] == 1.0
+    assert np.allclose(weights, weights.T) and np.allclose(weights, weights[::-1])
+    ring = annulus_mask((31, 31), 15.0, 15.0, 6.0, 10.0)
+    assert ring[15, 21] and not ring[15, 25] and not ring[15, 20]  # 6 in, 10 out, 5 out

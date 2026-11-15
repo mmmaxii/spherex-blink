@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from app.data import flags as flaglib
 from app.data import calibration, resolve, sia
+from app.data import flags as flaglib
 from app.errors import BadRequest, TargetNotFound, UpstreamError
 from tests.conftest import FLAG_BITS, make_ref
 

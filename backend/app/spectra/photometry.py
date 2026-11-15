@@ -18,6 +18,10 @@ Checked results: the four passes of eps Ind B agree within 1 % and the spectrum 
 T-dwarf bands; injected 10 % sinusoids come back as 9.5 % with the right period.
 Not handled here: saturated stars (Barnard, R Dra, parts of RW Aur). Their light can be followed
 with the PSF wings, but only in relative units (notebook 04), so they get no mJy point here.
+
+Every step works on a small window around the target (the sky annulus plus a margin), not on the
+whole cutout: the numbers are the same and a 301 x 301 cutout with 30 comparison stars costs ~150
+times less memory and CPU. Aperture shapes come from spectra/aperture.py (photutils conventions).
 """
 
 import math
@@ -25,12 +29,12 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 from astropy.stats import sigma_clipped_stats
-from photutils.aperture import CircularAnnulus, CircularAperture
 
 from ..config import get_settings
 from ..data import calibration
 from ..data import flags as flaglib
 from ..data.l2 import Cutout, FrameSkipped
+from .aperture import annulus_mask, circle_weights
 
 IMPLEMENTED = True  # validated on eps Ind B, 15 Nov 2026 (see the module docstring)
 
@@ -74,13 +78,41 @@ def _pixel_calibration(cutout: Cutout) -> tuple[float, float, float, str]:
         return cutout.lambda_um, cutout.bandwidth_um, omega, "wcs-wave"
 
 
-def _recipe_flags_in(cutout: Cutout, where: np.ndarray) -> list[str]:
+@dataclass(frozen=True)
+class Window:
+    """The pixels of a cutout around one position: everything the photometry looks at."""
+
+    image: np.ndarray  # float64 [MJy/sr]
+    bad: np.ndarray  # True = no value or a flag of the official recipe
+    flags: np.ndarray | None
+    variance: np.ndarray | None
+    x: float  # the position, in window pixels
+    y: float
+
+
+def window(cutout: Cutout, x: float, y: float, radius_px: float) -> Window:
+    """Every pixel whose centre is within `radius_px` of cutout position (x, y), plus one pixel of
+    margin (clipped at the cutout edges). Slices of the cutout: nothing outside is copied."""
+    half = math.ceil(radius_px) + 1
+    rows, cols = cutout.image_mjysr.shape
+    r0, r1 = max(0, int(y) - half), min(rows, int(y) + half + 2)
+    c0, c1 = max(0, int(x) - half), min(cols, int(x) + half + 2)
+    image = cutout.image_mjysr[r0:r1, c0:c1].astype(np.float64)
+    flags = cutout.flags[r0:r1, c0:c1] if cutout.flags is not None else None
+    bad = ~np.isfinite(image)
+    if flags is not None:
+        bad |= flaglib.bad_mask(flags, cutout.flag_bits)
+    variance = cutout.variance[r0:r1, c0:c1] if cutout.variance is not None else None
+    return Window(image, bad, flags, variance, x - c0, y - r0)
+
+
+def _recipe_flags_in(flags: np.ndarray | None, bits: dict[int, str], where: np.ndarray) -> list[str]:
     """Names of the recipe flags set on the pixels selected by `where` (for the skip reason)."""
-    if cutout.flags is None:
+    if flags is None:
         return []
     names: set[str] = set()
     for row, col in np.argwhere(where):
-        names.update(flaglib.names_at(cutout.flags, cutout.flag_bits, int(row), int(col)))
+        names.update(flaglib.names_at(flags, bits, int(row), int(col)))
     return sorted(n for n in names if n in flaglib.EXCLUDE_FOR_PHOTOMETRY)
 
 
@@ -91,20 +123,11 @@ class _Sky:
     n_px: int  # clean pixels used
 
 
-def _bad_pixels(cutout: Cutout, image: np.ndarray) -> np.ndarray:
-    """True where a pixel must not be used: no value, or a flag of the official recipe."""
-    bad = ~np.isfinite(image)
-    if cutout.flags is not None:
-        bad |= flaglib.bad_mask(cutout.flags, cutout.flag_bits)
-    return bad
-
-
 def _sky(image: np.ndarray, bad: np.ndarray, x: float, y: float) -> _Sky:
     """Sky level in the annulus around the target. Recipe-flagged pixels are left out; neighbour
     stars that fall in the annulus are removed by the 3-sigma clipping (SOURCE is not left out)."""
     s = get_settings()
-    annulus = CircularAnnulus((x, y), s.background_inner_px, s.background_outer_px)
-    in_annulus = annulus.to_mask(method="center").to_image(image.shape) > 0
+    in_annulus = annulus_mask(image.shape, x, y, s.background_inner_px, s.background_outer_px)
     values = image[in_annulus & ~bad]
     if len(values) < MIN_SKY_PX:
         raise FrameSkipped("not enough clean sky around the target")
@@ -114,8 +137,7 @@ def _sky(image: np.ndarray, bad: np.ndarray, x: float, y: float) -> _Sky:
 
 def _aperture_weights(shape: tuple[int, int], x: float, y: float) -> np.ndarray:
     """Fraction of each pixel inside the aperture circle (0 outside, 1 inside, partial at the edge)."""
-    aperture = CircularAperture((x, y), get_settings().aperture_radius_px)
-    return aperture.to_mask(method="exact").to_image(shape)
+    return circle_weights(shape, x, y, get_settings().aperture_radius_px)
 
 
 def _light_on_bad_pixels(weights: np.ndarray, bad: np.ndarray, x: float, y: float) -> float:
@@ -131,23 +153,23 @@ def measure(cutout: Cutout) -> Measurement:
     """Forced aperture photometry at (cutout.x_px, cutout.y_px). Raises FrameSkipped with a
     readable reason when this image cannot give a trustworthy flux."""
     s = get_settings()
-    image = cutout.image_mjysr.astype(np.float64)
-    x, y = cutout.x_px, cutout.y_px
+    rows, cols = cutout.image_mjysr.shape
 
     # 1. The aperture and the sky annulus must fit inside the cutout.
     margin = s.background_outer_px + 1
-    if not (margin <= x < image.shape[1] - margin and margin <= y < image.shape[0] - margin):
+    if not (margin <= cutout.x_px < cols - margin and margin <= cutout.y_px < rows - margin):
         raise FrameSkipped("target too close to the detector edge")
 
-    # 2. Pixels to leave out, and the sky level around the target.
-    bad = _bad_pixels(cutout, image)
+    # 2. Pixels to leave out, and the sky level around the target (all inside the window).
+    w = window(cutout, cutout.x_px, cutout.y_px, s.background_outer_px)
+    image, bad, x, y = w.image, w.bad, w.x, w.y
     sky = _sky(image, bad, x, y)
 
     # 3. How much of the star's light is on bad pixels. Too much = saturated or damaged core.
     weights = _aperture_weights(image.shape, x, y)
     lost = _light_on_bad_pixels(weights, bad, x, y)
     if lost > s.max_lost_light:
-        names = _recipe_flags_in(cutout, bad & (weights > 0))
+        names = _recipe_flags_in(w.flags, cutout.flag_bits, bad & (weights > 0))
         reason = f"{100 * lost:.0f} % of the star's light falls on flagged pixels"
         raise FrameSkipped(f"{reason} ({', '.join(names)})" if names else reason)
 
@@ -158,8 +180,8 @@ def measure(cutout: Cutout) -> Measurement:
     # 5. Statistical error: pixel noise (from the VARIANCE extension when it was read) plus the
     #    uncertainty of the sky level that was subtracted from every aperture pixel.
     area_px = float(weights.sum())
-    if cutout.variance is not None:
-        pixel_var = float(np.sum(cutout.variance[good] * weights[good] ** 2)) / (1 - lost) ** 2
+    if w.variance is not None:
+        pixel_var = float(np.sum(w.variance[good] * weights[good] ** 2)) / (1 - lost) ** 2
     else:
         pixel_var = area_px * sky.std_mjysr**2
     sky_var = area_px**2 * sky.std_mjysr**2 / sky.n_px
@@ -172,7 +194,8 @@ def measure(cutout: Cutout) -> Measurement:
 
     central_flags = []
     if cutout.flags is not None:
-        central_flags = flaglib.names_at(cutout.flags, cutout.flag_bits, round(y), round(x))
+        row, col = round(cutout.y_px), round(cutout.x_px)
+        central_flags = flaglib.names_at(cutout.flags, cutout.flag_bits, row, col)
 
     return Measurement(
         mjd=cutout.mjd,

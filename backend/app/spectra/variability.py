@@ -66,16 +66,16 @@ class StarPoint:
 
 def wing_brightness(cutout: Cutout, x: float, y: float) -> float | None:
     """Median brightness of the PSF wings (9–14 px) minus the sky further out (20–28 px)."""
-    image = cutout.image_mjysr.astype(np.float64)
-    if not (FAR_OUTER_PX + 1 <= x < image.shape[1] - FAR_OUTER_PX - 1):
+    rows, cols = cutout.image_mjysr.shape
+    if not (FAR_OUTER_PX + 1 <= x < cols - FAR_OUTER_PX - 1):
         return None
-    if not (FAR_OUTER_PX + 1 <= y < image.shape[0] - FAR_OUTER_PX - 1):
+    if not (FAR_OUTER_PX + 1 <= y < rows - FAR_OUTER_PX - 1):
         return None
-    bad = photometry._bad_pixels(cutout, image)
-    yy, xx = np.mgrid[: image.shape[0], : image.shape[1]]
-    radius = np.hypot(xx - x, yy - y)
-    wing = image[(radius >= WING_INNER_PX) & (radius < WING_OUTER_PX) & ~bad]
-    far = image[(radius >= FAR_INNER_PX) & (radius < FAR_OUTER_PX) & ~bad]
+    w = photometry.window(cutout, x, y, FAR_OUTER_PX)  # only the pixels the two rings can reach
+    yy, xx = np.mgrid[: w.image.shape[0], : w.image.shape[1]]
+    radius = np.hypot(xx - w.x, yy - w.y)
+    wing = w.image[(radius >= WING_INNER_PX) & (radius < WING_OUTER_PX) & ~w.bad]
+    far = w.image[(radius >= FAR_INNER_PX) & (radius < FAR_OUTER_PX) & ~w.bad]
     if len(wing) < 20 or len(far) < 30:
         return None
     _, sky, _ = sigma_clipped_stats(far, sigma=3.0)
@@ -84,8 +84,8 @@ def wing_brightness(cutout: Cutout, x: float, y: float) -> float | None:
 
 def measure_star(cutout: Cutout, star: int, x: float, y: float, with_wings: bool) -> StarPoint | None:
     """Aperture flux (and, for the target, wing brightness) of a star at cutout pixel (x, y)."""
-    image = cutout.image_mjysr.astype(np.float64)
-    if not (0 <= x < image.shape[1] and 0 <= y < image.shape[0]):
+    rows, cols = cutout.image_mjysr.shape
+    if not (0 <= x < cols and 0 <= y < rows):
         return None
     # The same image, measured at another place: move the "position asked for" there.
     shifted = replace(
