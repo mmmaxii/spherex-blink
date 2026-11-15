@@ -18,21 +18,24 @@ nobody asked for.** Everything in the repo is in English (code, routes, URL para
   preview, last five analyses in localStorage) and `pages/AnalysisPage` (`?ra&dec` or `?target`: the
   full analysis; its state lives in the URL, `src/state/urlState.ts`). Sky map: `components/SkyMap` +
   `src/sky/` (Aladin Lite 3.8.2 bundled from npm, surveys from IRSA's HiPS copies, coordinate formats).
-  Other components: `Player`, `SpectrumPanel`, `ContextMap`, `SelectionPanel`, `RecentMenu`,
-  `SurveyBar`, `StatusBar`, `PreviewLoop`. API types generated from FastAPI's `/openapi.json`
+  Other components: `Player` (with the `CombineView` add/subtract tab), `SpectrumPanel`,
+  `VariabilityPanel`, `ContextMap`, `SelectionPanel`, `ManualPosition`, `RecentMenu`, `SurveyBar`,
+  `StatusBar`, `PreviewLoop`, `InfoDialog`. Every panel explains itself in a collapsible `InfoNote`
+  (texts in `src/content/explanations.tsx`). API types generated from FastAPI's `/openapi.json`
   (`npm run gen:api`, backend running) into `src/api/schema.d.ts`.
 - `backend/`: FastAPI on Render (one instance, one worker, us-east, Python 3.12). Layers, top to bottom:
   `api/routes.py` (validation only) → `pipeline/` (ordered steps of a long request, run as background jobs)
   → `data/`, `imaging/`, `spectra/` (one small function per step) → `core/` (HTTP retries, disk cache,
   jobs, product files). All settings in `app/config.py`; answer shapes in `app/schemas.py`; errors in
   `app/errors.py` (always `{"error": {"code", "message", "detail"}}`).
-- Long requests (`/api/frames`, `/api/spectrum`) answer at once with a job; the page polls
+- Long requests (`/api/frames`, `/api/spectrum`, `/api/variability`) answer at once with a job; the page polls
   `/api/jobs/{id}`. The job id is a hash of the parameters, so equal requests share work, and results are
   kept on disk under `.cache/products/` (a cache only: Render's disk is temporary).
 - `validation/`: notebooks where a step is tried and checked first. Code that passes moves into
   `backend/app/` with a note of the notebook cell it came from.
 
-Spectra work (`spectra/photometry.measure()`, validated 2026-11-15, see below). Not built:
+Spectra (`spectra/photometry.measure()`) and light curves (`spectra/variability.py`) work, validated
+2026-11-15 (see below). Not built:
 `spectra/classifier.classify()` (stub; it loads `backend/models/classifier.joblib` when the file exists) and
 the all-sky-cube quick look (`/api/spectrum?mode=cube` answers 501).
 
@@ -98,8 +101,26 @@ Code style: small functions with clear names and comments that say why; no dense
 - Variability: compare each star with itself at the same wavelength in other images; comparison stars are
   the "constant star" reference. Per-image zero-point correction is not worth it: the real calibration
   error per image is ~0.4–0.9 %, below the comparison-star noise.
-- One spectrum with all 463 images took 11 min from Chile with astropy + fsspec. A reader that asks S3 only
-  for the header and the needed rows (4 requests per image) took ~1 min in the notebooks.
+- One spectrum with all 463 images took 11 min from Chile with astropy + fsspec. `data/l2.py` now asks S3
+  only for the headers, the IMAGE rows, the FLAGS row index and its compressed rows (4 Range requests, 6
+  with variance; RICE decoded with astropy's `Rice1`). Identical pixels, flags and variance to astropy on
+  real files; one light curve went from 52 min to ~4 min from Chile.
+
+## Validated on 2026-11-15 (light curves, add/subtract, deploy)
+
+- `/api/variability` (backend, 240 images): eps Ind B no change (5.2 % vs 3.5 % for 12 comparison stars);
+  RW Aur variable (41 % vs 3.1 %; passes ×0.86, ×1.01, ×1.22); Barnard no change above 15 % (wings).
+  R Dra needed 600 images (`variability_max_images`) for P = 244.6 d, power 0.27.
+- Rules in `spectra/variability.py`: wings only when the aperture fails on ≥ 30 % of images
+  (`SATURATED_SHARE`); verdict threshold max(3 × comparison scatter, 5 %), 15 % with wings; period only if
+  power ≥ 0.25, span ≥ 1.5 P, largest gap < 0.5 P and comparison-star power < 0.1. Comparison stars need
+  a 301 × 301 px piece (`variability_cutout_half_px = 150`); 161 px found too few.
+- Add/subtract: blink frames also write aligned values as little-endian float16 (`data_url`, NaN =
+  flagged or no data); the browser averages groups A and B ignoring NaN.
+- Deploy: Vercel (`spherex-blink-umber.vercel.app`) rewrites `/api/*` to Render in `frontend/vercel.json`,
+  so the frontend needs no environment variable. `SPHEREX_ALLOWED_ORIGINS` on Render covers direct calls.
+  Render free plan: sleeps after 15 idle min, 512 MB, ~0.3 images/s for light curves (~20 min for RW Aur);
+  the disk cache is lost on restart.
 - CDS (Strasbourg) answered 404 for the Aladin script and its survey tiles on 15 Nov: Aladin is bundled
   from npm and surveys use IRSA URLs. Aladin takes over the element it is mounted on (CSS position), so
   size and pointer listeners live on an outer element (`SkyMap`). Check UI changes in a real browser
