@@ -50,7 +50,7 @@ def why_no_spectrum(n_points: int, n_images: int, skipped: list[dict[str, Any]])
         return (
             f"The target is too bright for SPHEREx: its core is saturated or flagged in {on_flagged} of "
             f"{n_images} images, so its flux cannot be measured with an aperture. Its brightness changes "
-            "can still be followed with the wings of the star's image (not in this tool yet)."
+            "can still be followed with the wings of the star's image: see 'Brightness changes'."
         )
     return f"Only {n_points} of {n_images} images gave a measurement."
 

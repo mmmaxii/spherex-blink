@@ -121,7 +121,7 @@ class FrameInfo(BaseModel):
     mjd: float
     date_utc: str
     lambda_um: float = Field(
-        description="Wavelength at the field centre in this image (approximate: WCS-WAVE table)."
+        description="Wavelength at the field centre in this image (per-pixel spectral calibration map)."
     )
     bandwidth_um: float
     coverage_fraction: float
