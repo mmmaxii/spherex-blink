@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     calibration_systematic: float = 0.03  # added in quadrature, as the official IRSA photometry does
     suspect_factor: float = 2.0  # a point this far from its same-pass neighbours is marked suspect
 
+    # Variability (validation notebook maxi/04): target + comparison stars on every image.
+    variability_max_images: int = 240  # images read for one light curve (wide + deep surveys)
+    variability_cutout_half_px: int = 80  # cutout of 161 x 161 px: comparison stars within ~8′
+
     # --- Web -----------------------------------------------------------------------------------
     allowed_origins: list[str] = ["http://localhost:5173", "https://spherex-blink.vercel.app"]
     cache_dir: str = ".cache"
