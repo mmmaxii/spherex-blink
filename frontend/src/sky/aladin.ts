@@ -17,8 +17,16 @@ export interface AladinView {
   gotoRaDec(ra: number, dec: number): void;
   setFoV(fovDeg: number): void;
   setBaseImageLayer(urlOrId: string): void;
+  getBaseImageLayer(): AladinImageLayer;
   addOverlay(overlay: AladinOverlay): void;
   on(event: string, callback: (...args: unknown[]) => void): void;
+}
+
+/** A sky survey layer. Cube surveys (several wavelengths) can show one channel at a time. */
+export interface AladinImageLayer {
+  added?: boolean; // true once its properties are loaded and it is on the map
+  cubeDepth?: number; // number of channels, for cube surveys
+  setSliceNumber?(slice: number): void;
 }
 
 export interface AladinOverlay {
@@ -30,8 +38,16 @@ export interface AladinGlobal {
   init: Promise<void>;
   aladin(element: HTMLElement, options: Record<string, unknown>): AladinView;
   graphicOverlay(options: Record<string, unknown>): AladinOverlay;
-  circle(ra: number, dec: number, radiusDeg: number, options?: Record<string, unknown>): unknown;
-  polygon(points: [number, number][], options?: Record<string, unknown>): unknown;
+  circle(
+    ra: number,
+    dec: number,
+    radiusDeg: number,
+    options?: Record<string, unknown>,
+  ): unknown;
+  polygon(
+    points: [number, number][],
+    options?: Record<string, unknown>,
+  ): unknown;
 }
 
 let loading: Promise<AladinGlobal> | null = null;
@@ -75,4 +91,29 @@ export const QUIET_OPTIONS = {
   showShareControl: false,
   showContextMenu: false,
   backgroundColor: "rgb(4,6,10)",
+  log: false, // no usage report to the CDS logger (the request failed while CDS was down)
 };
+
+/**
+ * Show a survey on a map. For a cube survey, `slice` picks the channel once the layer is ready
+ * (Aladin loads the survey's properties first, so this waits for up to a few seconds).
+ */
+export function showSurvey(
+  view: AladinView,
+  url: string,
+  slice?: number,
+): void {
+  view.setBaseImageLayer(url);
+  if (slice === undefined) return;
+  let tries = 0;
+  const timer = window.setInterval(() => {
+    const layer = view.getBaseImageLayer();
+    tries += 1;
+    if (layer.added && layer.cubeDepth && layer.setSliceNumber) {
+      layer.setSliceNumber(slice);
+      window.clearInterval(timer);
+    } else if (tries > 50) {
+      window.clearInterval(timer); // give up quietly: the default channel stays
+    }
+  }, 100);
+}

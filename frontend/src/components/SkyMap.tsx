@@ -2,10 +2,12 @@ import { useEffect, useRef } from "react";
 import {
   loadAladin,
   QUIET_OPTIONS,
+  showSurvey,
   type AladinGlobal,
   type AladinOverlay,
   type AladinView,
 } from "../sky/aladin";
+import type { Survey } from "../sky/surveys";
 
 /** A spot on the sky with the size of the field to analyse. */
 export interface SkySelection {
@@ -23,7 +25,7 @@ export interface FlyTo {
 }
 
 interface Props {
-  surveyUrl: string;
+  survey: Survey; // what the map shows (a cube survey also says which channel)
   initial: { raDeg: number; decDeg: number; fovDeg: number };
   selection: SkySelection | null; // drawn as a square on the map
   flyTo: FlyTo | null;
@@ -58,6 +60,9 @@ function squareCorners(
  * person clicks; the page decides what to do with that. The selected field is drawn as a square.
  */
 export function SkyMap(props: Props) {
+  // Aladin takes over the element it is mounted on (it changes its CSS position), so the size and
+  // the pointer listeners live on an outer element and Aladin gets an inner one at 100 %.
+  const frame = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const library = useRef<AladinGlobal | null>(null);
   const view = useRef<AladinView | null>(null);
@@ -72,10 +77,10 @@ export function SkyMap(props: Props) {
     loadAladin()
       .then((A) => {
         if (cancelled || !box.current || view.current) return;
-        const { initial, surveyUrl } = callbacks.current;
+        const { initial, survey } = callbacks.current;
         const map = A.aladin(box.current, {
           ...QUIET_OPTIONS,
-          survey: surveyUrl,
+          survey: survey.url,
           target: `${initial.raDeg} ${initial.decDeg}`,
           fov: initial.fovDeg,
         });
@@ -84,6 +89,8 @@ export function SkyMap(props: Props) {
           lineWidth: 2,
         });
         map.addOverlay(shapes);
+        if (survey.slice !== undefined)
+          showSurvey(map, survey.url, survey.slice);
         library.current = A;
         view.current = map;
         overlay.current = shapes;
@@ -108,8 +115,9 @@ export function SkyMap(props: Props) {
   }, []);
 
   // 2. Pointer: live coordinates on hover, a pick on click (a drag only pans the map).
+  //    Listened to in the capture phase, before Aladin's own handlers can stop the event.
   useEffect(() => {
-    const element = box.current;
+    const element = frame.current;
     if (!element) return;
     let pressedAt: { x: number; y: number } | null = null;
 
@@ -141,20 +149,22 @@ export function SkyMap(props: Props) {
       const coords = moved <= CLICK_TOLERANCE_PX ? skyAt(event) : null;
       if (coords) callbacks.current.onPick(coords[0], coords[1]);
     };
-    element.addEventListener("pointermove", onMove);
-    element.addEventListener("pointerdown", onDown);
-    element.addEventListener("pointerup", onUp);
+    const capture = { capture: true };
+    element.addEventListener("pointermove", onMove, capture);
+    element.addEventListener("pointerdown", onDown, capture);
+    element.addEventListener("pointerup", onUp, capture);
     return () => {
-      element.removeEventListener("pointermove", onMove);
-      element.removeEventListener("pointerdown", onDown);
-      element.removeEventListener("pointerup", onUp);
+      element.removeEventListener("pointermove", onMove, capture);
+      element.removeEventListener("pointerdown", onDown, capture);
+      element.removeEventListener("pointerup", onUp, capture);
     };
   }, []);
 
   // 3. Survey (mission) chosen by the person.
   useEffect(() => {
-    view.current?.setBaseImageLayer(props.surveyUrl);
-  }, [props.surveyUrl]);
+    if (view.current)
+      showSurvey(view.current, props.survey.url, props.survey.slice);
+  }, [props.survey]);
 
   // 4. The selected field, drawn as a square with a small circle at its centre.
   function drawSelection() {
@@ -177,5 +187,9 @@ export function SkyMap(props: Props) {
     view.current.setFoV(target.fovDeg);
   }, [props.flyTo]);
 
-  return <div ref={box} className="sky-map" aria-label="Interactive sky map" />;
+  return (
+    <div ref={frame} className="sky-map" aria-label="Interactive sky map">
+      <div ref={box} className="sky-map-canvas" />
+    </div>
+  );
 }
