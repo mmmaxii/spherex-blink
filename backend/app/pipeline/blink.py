@@ -34,13 +34,14 @@ from ..imaging.grid import Grid, make_grid, to_fraction
 from .common import for_each_image, mjd_to_iso, read_cutout_with_retries, start_job, weekly_tag
 
 KIND = "blink"
-PIPELINE_VERSION = "2"  # raise it when the output changes, so stored products are not reused
+PIPELINE_VERSION = "3"  # raise it when the output changes, so stored products are not reused
 
 NOTES = [
     "Each image had its median level subtracted (zodiacal light) so frames can be compared.",
     "Pixels flagged by the SPHEREx pipeline (cosmic-ray hits, persistence, halos of bright stars...) "
     "and their immediate neighbours are hidden by default: they change from image to image and look "
-    "like moving objects. The unmasked images are available too.",
+    "like moving objects. In the pictures they are filled from the surrounding sky (never in "
+    "measurements); 'Paint flags' shows where they are and the unmasked images are available too.",
     "Images of one detector see the position at different wavelengths: a change of brightness "
     "between frames can come from the wavelength, not from time. Check the wavelength of each frame.",
     "Stacks are sigma-clipped means of the images of a survey pass, without flagged pixels.",
@@ -210,7 +211,9 @@ def run(params: BlinkParams, progress: Progress) -> dict[str, Any]:
     # a change in the sky.
     stretch = render.common_stretch([f.clean for f in frames], float(np.median([f.noise for f in frames])))
     for index, frame in enumerate(frames):
-        render.save_frame(frame.clean, stretch, folder / f"frame_{index:03d}.png")
+        # Flagged pixels are filled from the surrounding sky for display (not left as holes).
+        picture = render.fill_hidden(frame.clean, frame.raw)
+        render.save_frame(picture, stretch, folder / f"frame_{index:03d}.png")
         render.save_frame(frame.raw, stretch, folder / f"raw_{index:03d}.png")
         render.save_mask(frame.bad, folder / f"flags_{index:03d}.png")
         frame.info = {
@@ -253,7 +256,8 @@ def run(params: BlinkParams, progress: Progress) -> dict[str, Any]:
 
     progress(0.96, "Writing the animation")
     captions = [f"{f.info['date_utc'][:10]}  {f.info['lambda_um']:.3f} um  D{f.ref.detector}" for f in frames]
-    render.save_gif([f.clean for f in frames], captions, stretch, folder / "blink.gif", s.gif_frame_ms)
+    pictures = [render.fill_hidden(f.clean, f.raw) for f in frames]
+    render.save_gif(pictures, captions, stretch, folder / "blink.gif", s.gif_frame_ms)
 
     manifest = {
         "kind": KIND,

@@ -86,7 +86,7 @@ def test_the_marker_follows_the_star_and_the_star_is_under_it(monkeypatch):
     assert (row + 0.5) / picture.shape[0] == pytest.approx(last["target_y_frac"], abs=0.02)
 
 
-def test_flagged_pixels_are_hidden_in_frames_but_kept_in_the_raw_version(monkeypatch):
+def test_flagged_pixels_are_filled_in_frames_but_kept_in_the_raw_version(monkeypatch):
     _fake_archive(monkeypatch)
     manifest = blink.run(_params(), lambda *_: None)
     store = get_product_store()
@@ -96,7 +96,8 @@ def test_flagged_pixels_are_hidden_in_frames_but_kept_in_the_raw_version(monkeyp
     )
     flagged = flags[..., 3] > 0
     assert flagged.sum() >= 1
-    assert (clean[..., 1][flagged] == 0).all()  # transparent where flagged
+    assert (clean[..., 1][flagged] == 255).all()  # filled from the surrounding sky, not a hole
+    assert clean[..., 0][flagged].max() < 120  # ...and the hot pixel's value is gone
     assert (raw[..., 1][flagged] == 255).all() and raw[..., 0][flagged].max() == 255  # the hot pixel is there
     assert manifest["frames"][0]["flag_counts"]["HOT"] == 1
     stack = np.asarray(Image.open(store.file("blink", manifest["key"], "stack_pass_00.png")))

@@ -117,3 +117,18 @@ def test_difference_mask_and_gif_are_written(tmp_path):
     )
     gif = Image.open(tmp_path / "g.gif")
     assert gif.n_frames == 2
+
+
+def test_fill_hidden_fills_flagged_pixels_but_not_missing_data():
+    from app.imaging.render import fill_hidden
+
+    raw = np.ones((40, 40), dtype=np.float32)
+    raw[:, :5] = np.nan  # outside the detector: no data at all
+    clean = raw.copy()
+    clean[20, 20] = np.nan  # one flagged pixel
+    clean[5:25, 10:30] = np.nan  # a big flagged core, wider than the smoothing kernel
+    clean[20, 20] = np.nan
+    picture = fill_hidden(clean, raw)
+    assert np.isfinite(picture[5:25, 10:30]).all()  # every flagged pixel has a value now
+    assert np.isnan(picture[:, :5]).all()  # "no data" stays transparent
+    assert np.isfinite(clean[5:25, 10:30]).sum() == 0  # the input (used for measuring) is untouched
