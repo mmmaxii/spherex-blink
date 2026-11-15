@@ -1,7 +1,8 @@
-"""Turning L2 images into comparable frames.
+"""Turning L2 cutouts into comparable frames.
 
-Planned modules:
-  background.py  local background (sigma-clipped, SOURCE pixels excluded), per-frame noise and weight
-  reproject.py   flux-conserving reprojection to a common north-up grid (reproject_exact, as IRSA does)
-  stack.py       inverse-variance weighted, sigma-clipped stacks per (detector, pass); differences
+grid.py        common north-up grid of a request; sky position → place on the displayed image
+align.py       reprojection of a cutout (and its flag mask) onto the grid
+background.py  per-image background level and noise
+stack.py       sigma-clipped stacks and differences of aligned images
+render.py      PNG frames with one common brightness scale, flag overlays, GIF
 """
