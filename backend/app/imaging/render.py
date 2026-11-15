@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+from astropy.convolution import Gaussian2DKernel, interpolate_replace_nans
 from astropy.stats import mad_std
 from PIL import Image, ImageDraw
 
@@ -43,6 +44,24 @@ def common_stretch(frames: list[np.ndarray], noise: float | None = None, high_pc
     vmin = -2.0 * sigma
     vmax = max(float(np.percentile(values, high_pct)), vmin + 40.0 * sigma)
     return Stretch(vmin, vmax, asinh_a=float(np.clip(6.0 * sigma / (vmax - vmin), 1e-4, 1.0)))
+
+
+def fill_hidden(clean: np.ndarray, raw: np.ndarray, smoothing_px: float = 2.0) -> np.ndarray:
+    """Picture for display: hidden (flagged) pixels are filled from their surroundings, so the
+    video shows sky instead of holes. Pixels without data in `raw` (outside the detector) stay NaN.
+
+    Holes are filled by Gaussian interpolation of the valid neighbours; what is still empty after
+    that (the core of a saturated star, wider than the kernel) gets 0, the sky level, because the
+    frames are background-subtracted. Only for pictures: measurements never use filled pixels.
+    """
+    hidden = np.isnan(clean) & np.isfinite(raw)
+    if not hidden.any():
+        return clean
+    filled = interpolate_replace_nans(clean, Gaussian2DKernel(x_stddev=smoothing_px))
+    still_empty = hidden & ~np.isfinite(filled)
+    filled[still_empty] = 0.0
+    filled[~np.isfinite(raw)] = np.nan  # keep "no data" transparent
+    return filled.astype(np.float32)
 
 
 def _gray(data: np.ndarray, stretch: Stretch) -> tuple[np.ndarray, np.ndarray]:
