@@ -22,7 +22,9 @@ export const MAX_RECENT = 5;
 export function loadRecent(): RecentAnalysis[] {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-    return Array.isArray(parsed) ? (parsed as RecentAnalysis[]).slice(0, MAX_RECENT) : [];
+    return Array.isArray(parsed)
+      ? (parsed as RecentAnalysis[]).slice(0, MAX_RECENT)
+      : [];
   } catch {
     return [];
   }

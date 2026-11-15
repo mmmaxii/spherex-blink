@@ -21,22 +21,30 @@ export function RecentMenu({ open, recent, onToggle, onOpen, onShow }: Props) {
         <span aria-hidden="true">☰</span> SPHEREx Blink
       </button>
       {open && (
-        <aside id="recent-drawer" className="glass drawer" aria-label="Recent analyses">
+        <aside
+          id="recent-drawer"
+          className="glass drawer"
+          aria-label="Recent analyses"
+        >
           <h2>Recent analyses</h2>
           {recent.length === 0 ? (
             <p className="muted small">
-              Nothing yet. Pick a spot on the sky and analyse it: the last five are kept here, in
-              this browser only.
+              Nothing yet. Pick a spot on the sky and analyse it: the last five
+              are kept here, in this browser only.
             </p>
           ) : (
             <ol className="recent-list">
               {recent.map((entry) => (
                 <li key={entry.search}>
-                  <button className="recent-open" onClick={() => onOpen(entry.search)}>
+                  <button
+                    className="recent-open"
+                    onClick={() => onOpen(entry.search)}
+                  >
                     <strong>{entry.label}</strong>
                     <small>
                       {entry.fovArcmin}′ field
-                      {entry.nImages !== null && ` · ${entry.nImages} images`} ·{" "}
+                      {entry.nImages !== null &&
+                        ` · ${entry.nImages} images`} ·{" "}
                       {entry.savedAt.slice(0, 10)}
                     </small>
                   </button>
@@ -52,7 +60,8 @@ export function RecentMenu({ open, recent, onToggle, onOpen, onShow }: Props) {
             </ol>
           )}
           <p className="muted small">
-            Each opens its full analysis on its own page, with an address you can share.
+            Each opens its full analysis on its own page, with an address you
+            can share.
           </p>
         </aside>
       )}

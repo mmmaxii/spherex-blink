@@ -18,7 +18,10 @@ export function PreviewLoop({ result }: { result: BlinkResult }) {
 
   useEffect(() => {
     if (frames.length < 2) return;
-    const timer = window.setInterval(() => setIndex((i) => (i + 1) % frames.length), FRAME_MS);
+    const timer = window.setInterval(
+      () => setIndex((i) => (i + 1) % frames.length),
+      FRAME_MS,
+    );
     return () => window.clearInterval(timer);
   }, [frames.length]);
 
@@ -27,18 +30,28 @@ export function PreviewLoop({ result }: { result: BlinkResult }) {
   return (
     <figure className="preview">
       <div className="preview-picture">
-        <img src={frame.url} alt={`SPHEREx image of ${frame.date_utc.slice(0, 10)}`} />
-        {Number.isFinite(frame.target_x_frac) && Number.isFinite(frame.target_y_frac) && (
-          <span
-            className="preview-marker"
-            style={{ left: `${frame.target_x_frac * 100}%`, top: `${frame.target_y_frac * 100}%` }}
-            aria-hidden="true"
-          />
-        )}
+        <img
+          src={frame.url}
+          alt={`SPHEREx image of ${frame.date_utc.slice(0, 10)}`}
+        />
+        {Number.isFinite(frame.target_x_frac) &&
+          Number.isFinite(frame.target_y_frac) && (
+            <span
+              className="preview-marker"
+              style={{
+                left: `${frame.target_x_frac * 100}%`,
+                top: `${frame.target_y_frac * 100}%`,
+              }}
+              aria-hidden="true"
+            />
+          )}
       </div>
       <figcaption>
         {frame.date_utc.slice(0, 10)} · {frame.lambda_um.toFixed(3)} µm · pass{" "}
-        {frame.pass_index + 1} <span className="muted">({index + 1}/{frames.length})</span>
+        {frame.pass_index + 1}{" "}
+        <span className="muted">
+          ({index + 1}/{frames.length})
+        </span>
       </figcaption>
     </figure>
   );
