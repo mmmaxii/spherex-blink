@@ -73,6 +73,25 @@ class Settings(BaseSettings):
     spectrum_max_images: int = 150  # images read for one spectrum (all detectors)
     spectrum_cutout_half_px: int = 12  # cutout of 25 x 25 pixels around the target
 
+    # Per-pixel calibration maps (public S3 bucket, one file per detector, {d} = 1..6). The
+    # Explanatory Supplement (v2.1, §4.3.1) asks for CWAVE/CBAND in science work, not WCS-WAVE.
+    # Downloaded once into cache_dir/calibration (~50 MB per detector) and memory-mapped.
+    spectral_wcs_key: str = (
+        "dr1/spectral_wcs/cal-swcs-v5-2026-191/{d}/spectral_wcs_D{d}_spx_cal-swcs-v5-2026-191.fits"
+    )
+    solid_angle_key: str = (
+        "dr1/solid_angle_pixel_map/cal-sapm-v3-2026-191/{d}/solid_angle_pixel_map_D{d}_spx_cal-sapm-v3-2026-191.fits"
+    )
+
+    # Aperture photometry, validated on eps Ind B in validation/notebooks/maxi/03 and 04 (15 Nov 2026).
+    aperture_radius_px: float = 2.5  # encloses 97.7-98.8 % of the ePSF on all six detectors
+    background_inner_px: float = 6.0  # sky annulus; stars inside it are removed by sigma clipping
+    background_outer_px: float = 10.0
+    psf_sigma_px: float = 0.75  # Gaussian stand-in for the ePSF, used to weigh flagged pixels
+    max_lost_light: float = 0.20  # skip the image if more of the star's light falls on flagged pixels
+    calibration_systematic: float = 0.03  # added in quadrature, as the official IRSA photometry does
+    suspect_factor: float = 2.0  # a point this far from its same-pass neighbours is marked suspect
+
     # --- Web -----------------------------------------------------------------------------------
     allowed_origins: list[str] = ["http://localhost:5173", "https://spherex-blink.vercel.app"]
     cache_dir: str = ".cache"
