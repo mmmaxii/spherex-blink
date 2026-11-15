@@ -16,6 +16,7 @@ dependencies = [
     "fsspec>=2024.6",
     "aiohttp>=3.9",
     "reproject>=0.14",
+    "pillow>=10",
     "sep>=1.4",
     "photutils>=2.0",
     "scikit-learn>=1.5",
@@ -39,6 +40,14 @@ include = ["app*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
+addopts = "-m 'not live'"  # tests that need internet run with: pytest -m live
+markers = ["live: uses the real services (IRSA, S3, CDS, ESA)"]
+filterwarnings = [
+    "ignore:Input data contains invalid values",
+    "ignore:Mean of empty slice",
+    "ignore:All-NaN slice encountered",
+    "ignore:Using `httpx` with `starlette.testclient`",
+]
 
 [tool.ruff]
 line-length = 110
