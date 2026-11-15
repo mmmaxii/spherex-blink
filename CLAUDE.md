@@ -118,8 +118,13 @@ Code style: small functions with clear names and comments that say why; no dense
   (`SATURATED_SHARE`); verdict threshold max(3 × comparison scatter, 5 %), 15 % with wings; period only if
   power ≥ 0.25, span ≥ 1.5 P, largest gap < 0.5 P and comparison-star power < 0.1. Comparison stars need
   a 301 × 301 px piece (`variability_cutout_half_px = 150`); 161 px found too few.
+- Stacks, differences and add/subtract use the per-pixel median of every recorded pixel except
+  detector defects (`flags.DETECTOR_DEFECTS`). Hiding every flagged pixel (HALO, SUR_ERROR sit on
+  stars) made flat stair-step patches in differences, and one odd image (RW Aur, 90th percentile
+  0.67 vs 0.2 MJy/sr) a bright band with a mean. The difference reference is the first pass with
+  >= 3 images (eps Ind B D1 has a 1-image pass). Frames in the video still hide every flagged pixel.
 - Add/subtract: blink frames also write aligned values as little-endian float16 (`data_url`, NaN =
-  flagged or no data); the browser averages groups A and B ignoring NaN.
+  defect or no data); the browser takes the median of groups A and B ignoring NaN.
 - Deploy: Vercel (`spherex-blink-umber.vercel.app`) rewrites `/api/*` to Render in `frontend/vercel.json`,
   so the frontend needs no environment variable. `SPHEREX_ALLOWED_ORIGINS` on Render covers direct calls.
   Render free plan: sleeps after 15 idle min, 512 MB, ~0.3 images/s for light curves (~20 min for RW Aur);
