@@ -121,34 +121,7 @@ export function SelectionPanel(props: Props) {
         )}
       </div>
 
-      <form className="find" onSubmit={find}>
-        <label htmlFor="find-name" className="small muted">
-          Or go to an object by name
-        </label>
-        <div className="find-row">
-          <input
-            id="find-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. RW Aur"
-            autoComplete="off"
-          />
-          <button type="submit">Go</button>
-        </div>
-        <div className="chips" aria-label="Test targets of the challenge">
-          {TEST_TARGETS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              className="chip"
-              onClick={() => props.onFind(t)}
-            >
-              {SHORT_NAMES[t] ?? t}
-            </button>
-          ))}
-        </div>
-      </form>
-
+      {/* The result comes right under the button, before the name search. */}
       {quickLook.status === "running" && (
         <p className="progress" role="status">
           <progress value={quickLook.fraction} /> {quickLook.stage}…
@@ -177,6 +150,33 @@ export function SelectionPanel(props: Props) {
           </button>
         </section>
       )}
+      <form className="find" onSubmit={find}>
+        <label htmlFor="find-name" className="small muted">
+          Or go to an object by name
+        </label>
+        <div className="find-row">
+          <input
+            id="find-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. RW Aur"
+            autoComplete="off"
+          />
+          <button type="submit">Go</button>
+        </div>
+        <div className="chips" aria-label="Test targets of the challenge">
+          {TEST_TARGETS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className="chip"
+              onClick={() => props.onFind(t)}
+            >
+              {SHORT_NAMES[t] ?? t}
+            </button>
+          ))}
+        </div>
+      </form>
     </aside>
   );
 }
