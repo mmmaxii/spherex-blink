@@ -12,6 +12,7 @@ import {
   FrameFieldsInfo,
   PlayerInfo,
 } from "../content/explanations";
+import { CombineView } from "./CombineView";
 
 /** One step of the animation, whatever the view. */
 interface Item {
@@ -38,6 +39,7 @@ const VIEW_LABELS: Record<View, string> = {
   frames: "Every image",
   passes: "Survey passes (stacked)",
   difference: "Difference",
+  combine: "Add / subtract",
 };
 
 const LAYER_LABELS: Record<Layer, string> = {
@@ -60,6 +62,7 @@ const day = (dateUtc: string) => dateUtc.slice(0, 10);
 
 /** Turn the backend's result into the list of pictures of the chosen view. */
 function buildItems(result: BlinkResult, view: View, raw: boolean): Item[] {
+  if (view === "combine") return []; // drawn by CombineView, not as a list of pictures
   if (view === "frames")
     return result.frames.map((f) => ({
       key: `f${f.index}`,
@@ -176,7 +179,9 @@ export function Player({
         ))}
       </div>
 
-      {current ? (
+      {view === "combine" ? (
+        <CombineView result={result} />
+      ) : current ? (
         <>
           <div
             className="stage"
