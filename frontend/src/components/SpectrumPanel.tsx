@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { SpectrumInfo } from "../content/explanations";
 import {
   ApiError,
   getSpectrum,
@@ -133,7 +134,53 @@ function niceTicks(max: number): number[] {
   return Array.from({ length: Math.floor(max / step) + 1 }, (_, i) => i * step);
 }
 
+/**
+ * Vertical scale of the chart. Logarithmic by default: a spectrum spans several powers of ten
+ * (eps Ind B goes from 0.01 to 60 mJy), and a linear axis flattens the faint end.
+ */
+function yScale(fluxes: number[], top: number, logScale: boolean) {
+  const plotHeight = H - M.top - M.bottom;
+  if (!logScale) {
+    const max = top * 1.08 || 1;
+    return {
+      y: (mjy: number) => H - M.bottom - (Math.max(mjy, 0) / max) * plotHeight,
+      ticks: niceTicks(max),
+    };
+  }
+  const positive = fluxes.filter((f) => f > 0);
+  const high = Math.log10(top * 1.3 || 1);
+  const low = Math.max(Math.log10(Math.min(...positive, top) * 0.7), high - 5); // at most 5 decades
+  const y = (mjy: number) => {
+    const value = Math.min(
+      Math.max(Math.log10(Math.max(mjy, 1e-12)), low),
+      high,
+    );
+    return H - M.bottom - ((value - low) / (high - low)) * plotHeight;
+  };
+  const ticks = [];
+  for (let power = Math.ceil(low); power <= Math.floor(high); power++)
+    ticks.push(10 ** power);
+  return { y, ticks };
+}
+
+/** "103 images left out: 95 saturated or flagged at the target, 8 at the detector edge". */
+function skippedSummary(skipped: SpectrumResult["skipped"]): string | null {
+  if (skipped.length === 0) return null;
+  const counts = new Map<string, number>();
+  for (const s of skipped) {
+    const reason = s.reason.includes("light falls on flagged pixels")
+      ? "saturated or flagged at the target"
+      : s.reason;
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  }
+  const parts = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([r, n]) => `${n} ${r}`);
+  return `${skipped.length} images left out: ${parts.join(", ")}.`;
+}
+
 function SpectrumChart({ result }: { result: SpectrumResult }) {
+  const [logScale, setLogScale] = useState(true);
   const points = result.points.filter((p) => Number.isFinite(p.flux_mjy));
   if (points.length === 0)
     return <p className="notice">No image gave a usable measurement.</p>;
@@ -143,16 +190,20 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
   // The scale follows the trusted points: one cosmic ray must not flatten the whole spectrum.
   const trusted = points.filter((p) => !p.suspect);
   const scaleOn = trusted.length > 0 ? trusted : points;
-  const yMax =
-    Math.max(...scaleOn.map((p) => p.flux_mjy + (p.flux_err_mjy || 0))) *
-      1.08 || 1;
+  const top = Math.max(
+    ...scaleOn.map((p) => p.flux_mjy + (p.flux_err_mjy || 0)),
+  );
+  const { y, ticks } = yScale(
+    scaleOn.map((p) => p.flux_mjy),
+    top,
+    logScale,
+  );
   const nSuspect = points.length - trusted.length;
+  const leftOut = skippedSummary(result.skipped);
   const x = (um: number) =>
     M.left +
     ((um - X_RANGE_UM[0]) / (X_RANGE_UM[1] - X_RANGE_UM[0])) *
       (W - M.left - M.right);
-  const y = (mjy: number) =>
-    H - M.bottom - (Math.max(mjy, 0) / yMax) * (H - M.top - M.bottom);
   const describe = (p: SpectrumPoint) =>
     `${p.lambda_um.toFixed(3)} µm: ${p.flux_mjy.toFixed(2)} ± ${p.flux_err_mjy.toFixed(2)} mJy · ${p.date_utc.slice(0, 10)} · pass ${p.pass_index + 1}` +
     (p.suspect ? " · suspect (far from the same pass)" : "");
@@ -186,13 +237,21 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
             Suspect ({nSuspect})
           </span>
         )}
+        <label className="log-toggle">
+          <input
+            type="checkbox"
+            checked={logScale}
+            onChange={(e) => setLogScale(e.target.checked)}
+          />{" "}
+          Log scale
+        </label>
       </div>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label="Flux against wavelength, one series per survey pass"
       >
-        {niceTicks(yMax).map((tick) => (
+        {ticks.map((tick) => (
           <g key={tick}>
             <line
               className="grid"
@@ -207,7 +266,7 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
               y={y(tick) + 4}
               textAnchor="end"
             >
-              {tick}
+              {tick < 1 ? tick.toPrecision(1) : tick}
             </text>
           </g>
         ))}
@@ -261,6 +320,9 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
           </g>
         ))}
       </svg>
+      <p className="small muted">
+        {points.length} points, one per image.{leftOut && ` ${leftOut}`}
+      </p>
       {result.classification && (
         <p>
           Looks like: <strong>{result.classification.label}</strong>
@@ -315,6 +377,7 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
           ))}
         </ul>
       </details>
+      <SpectrumInfo />
     </figure>
   );
 }
