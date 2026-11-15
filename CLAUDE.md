@@ -28,9 +28,11 @@ nobody asked for.** Everything in the repo is in English (code, routes, URL para
 - `validation/`: notebooks where a step is tried and checked first. Code that passes moves into
   `backend/app/` with a note of the notebook cell it came from.
 
-Not built: `spectra/photometry.measure()` and `spectra/classifier.classify()` (stubs; `/api/spectrum`
-answers 501 while `photometry.IMPLEMENTED` is False). The classifier loads `backend/models/classifier.joblib`
-when the file exists.
+Spectra work (`spectra/photometry.measure()`, validated 2026-11-15, see below). Not built:
+`spectra/classifier.classify()` (stub; it loads `backend/models/classifier.joblib` when the file exists) and
+the all-sky-cube quick look (`/api/spectrum?mode=cube` answers 501).
+
+Code style: small functions with clear names and comments that say why; no dense one-liners to save time.
 
 ## Rules
 
@@ -76,3 +78,21 @@ when the file exists.
 - SIMBAD does not know "WISE 0855-0714"; it knows "WISE J085510.83-071442.5" (alias in `data/resolve.py`).
 - `FINAST` >= 2 = astrometry unusable (image skipped). The "W" WCS wavelength is approximate (9 x 9 table).
 - `logging.getLogger("astropy")` before importing astropy breaks astropy's start-up (see `app/log.py`).
+
+## Validated on 2026-11-15 (spectra)
+
+- The DR1 `SOURCE` flag covers ~45 % of every detector (Supplement §3.2.9: pixels with flux from catalog
+  sources). Never exclude it from a sky estimate: the sky becomes empty. Sky = sigma-clipped annulus.
+- Science wavelength: `dr1/spectral_wcs/...` (CWAVE/CBAND per pixel); solid angle: `dr1/solid_angle_pixel_map/...`
+  (`data/calibration.py`, downloaded once, memory-mapped). WCS-WAVE differs from CWAVE by ≤ 0.13 %.
+- `dr1/l3_flux_corrections/` only converts QR2 to the R7 scale: not used with DR1 + QR3.
+- eps Ind B through `pipeline/spectrum.run`: 412 points; identical to the notebook on 391 clean images; the
+  four passes agree on average; 4 % scatter per point. 42 images skipped for >20 % light on flagged pixels.
+- Saturated stars (Barnard, R Dra) cannot be measured with an aperture. Their PSF wings (9–14 px) follow
+  the variability in relative units: R Dra gives P = 244.8 d. Barnard shows the wings can fake ±20–30 %
+  changes in its most saturated bands, so only large changes are trustworthy (validation notebook 04).
+- Variability: compare each star with itself at the same wavelength in other images; comparison stars are
+  the "constant star" reference. Per-image zero-point correction is not worth it: the real calibration
+  error per image is ~0.4–0.9 %, below the comparison-star noise.
+- One spectrum with all 463 images took 11 min from Chile with astropy + fsspec. A reader that asks S3 only
+  for the header and the needed rows (4 requests per image) took ~1 min in the notebooks.
