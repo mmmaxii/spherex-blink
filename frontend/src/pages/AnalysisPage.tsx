@@ -17,6 +17,7 @@ import { ContextMap } from "../components/ContextMap";
 import { Player } from "../components/Player";
 import { SearchForm, type Query } from "../components/SearchForm";
 import { SpectrumPanel } from "../components/SpectrumPanel";
+import { VariabilityPanel } from "../components/VariabilityPanel";
 import { AboutMission, DetectorsInfo } from "../content/explanations";
 import { rememberAnalysis } from "../state/recent";
 import {
@@ -305,6 +306,10 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
             key={`${target.ra_deg},${target.dec_deg}`}
             target={target}
             ready={health?.spectrum_ready ?? false}
+          />
+          <VariabilityPanel
+            key={`v-${target.ra_deg},${target.dec_deg}`}
+            target={target}
           />
           <details className="notes">
             <summary>Share or embed this view</summary>
