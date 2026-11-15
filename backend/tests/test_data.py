@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from app.data import flags as flaglib
-from app.data import resolve, sia
+from app.data import calibration, resolve, sia
 from app.errors import BadRequest, TargetNotFound, UpstreamError
 from tests.conftest import FLAG_BITS, make_ref
 
@@ -122,3 +122,18 @@ def test_short_names_simbad_does_not_know_are_translated(monkeypatch, fixtures):
     monkeypatch.setattr(resolve, "fetch_text", fetch_text)
     resolve.from_name("WISE 0855-0714")
     assert asked[0].endswith("WISE%20J085510.83-071442.5")
+
+
+def test_calibration_grid_gives_its_knots_exactly_and_stays_inside_the_band():
+    g = calibration.grid()
+    assert g.lambda_um.shape == (6, len(g.knots_px), len(g.knots_px))
+    row, col = int(g.knots_px[10]), int(g.knots_px[20])
+    on_knot = calibration.at(4, col, row)
+    assert on_knot.lambda_um == float(g.lambda_um[3, 10, 20])
+    between = calibration.at(4, col + 4, row + 4)  # middle of a grid cell
+    corners = g.lambda_um[3, 10:12, 20:22]
+    assert corners.min() <= between.lambda_um <= corners.max()
+    assert 2.39 < between.lambda_um < 3.87  # detector 4 covers 2.4-3.9 um
+    assert 37 < between.solid_angle_arcsec2 < 39  # ~6.15" pixels
+    clipped = calibration.at(1, -5.0, 5000.0)  # positions off the detector use the nearest pixel
+    assert clipped.lambda_um == calibration.at(1, 0, int(g.knots_px[-1])).lambda_um

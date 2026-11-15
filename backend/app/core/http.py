@@ -27,7 +27,6 @@ RETRY_STATUS = {429, 500, 502, 503, 504}
 SERVICE_NAMES = {
     "irsa-sia": "The NASA/IPAC archive (IRSA) image search",
     "irsa-scs": "The IRSA catalogue service",
-    "s3-calibration": "The SPHEREx data store (AWS S3)",
     "cds-sesame": "The CDS name resolver (Sesame)",
     "esa-gaia": "The ESA Gaia archive",
     "s3-images": "The SPHEREx image store (AWS S3)",

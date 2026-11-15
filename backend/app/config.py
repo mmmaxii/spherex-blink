@@ -79,7 +79,8 @@ class Settings(BaseSettings):
 
     # Per-pixel calibration maps (public S3 bucket, one file per detector, {d} = 1..6). The
     # Explanatory Supplement (v2.1, §4.3.1) asks for CWAVE/CBAND in science work, not WCS-WAVE.
-    # Downloaded once into cache_dir/calibration (~50 MB per detector) and memory-mapped.
+    # The API does not download them (300 MB): it ships a grid of every 8th pixel built from these
+    # files by scripts/build_calibration_grid.py (see data/calibration.py).
     spectral_wcs_key: str = (
         "dr1/spectral_wcs/cal-swcs-v5-2026-191/{d}/spectral_wcs_D{d}_spx_cal-swcs-v5-2026-191.fits"
     )
