@@ -101,7 +101,7 @@ def search(ra_deg: float, dec_deg: float) -> list[ImageRef]:
             ("POS", f"circle {ra_deg:.6f} {dec_deg:.6f} {s.sia_radius_deg}"),
             ("RESPONSEFORMAT", "CSV"),
         ]
-        images = parse_sia_csv(fetch_text("irsa-sia", s.sia_url, params=params))
+        images = parse_sia_csv(fetch_text("irsa-sia", s.sia_url, params=params, tries=s.sia_tries))
         cache.put("sia", key, [asdict(i) for i in images])
         return images
     return [ImageRef(**row) for row in rows]

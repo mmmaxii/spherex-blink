@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     http_timeout_s: float = 60.0
     http_tries: int = 4  # attempts per request to an external service
     http_backoff_s: float = 1.5  # wait before retry n is backoff * 2**(n-1), plus jitter
+    http_backoff_max_s: float = 4.0  # ...but never longer than this between two attempts
+    # IRSA's image search answered 502 to 11 of 12 requests on 15 Nov 2026 (each in ~0.7 s): more
+    # attempts, with the capped wait, give a busy archive a real chance without a long wait.
+    sia_tries: int = 8
 
     # --- Limits (protect IRSA and our single instance) -----------------------------------------
     max_parallel_irsa: int = 8  # IRSA tutorials recommend <= 10 parallel requests
@@ -80,7 +84,8 @@ class Settings(BaseSettings):
         "dr1/spectral_wcs/cal-swcs-v5-2026-191/{d}/spectral_wcs_D{d}_spx_cal-swcs-v5-2026-191.fits"
     )
     solid_angle_key: str = (
-        "dr1/solid_angle_pixel_map/cal-sapm-v3-2026-191/{d}/solid_angle_pixel_map_D{d}_spx_cal-sapm-v3-2026-191.fits"
+        "dr1/solid_angle_pixel_map/cal-sapm-v3-2026-191/{d}/"
+        "solid_angle_pixel_map_D{d}_spx_cal-sapm-v3-2026-191.fits"
     )
 
     # Aperture photometry, validated on eps Ind B in validation/notebooks/maxi/03 and 04 (15 Nov 2026).
