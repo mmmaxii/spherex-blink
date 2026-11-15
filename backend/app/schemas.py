@@ -110,6 +110,10 @@ class FrameInfo(BaseModel):
     url: str = Field(description="Frame with flagged pixels hidden (transparent).")
     raw_url: str = Field(description="Same frame with everything the detector recorded.")
     flags_url: str = Field(description="Transparent PNG with the pixels the official recipe excludes.")
+    data_url: str = Field(
+        description="Aligned values (MJy/sr, background removed), north up, little-endian float16, "
+        "grid.width_px x grid.height_px; NaN = no data or flagged. Used to add or subtract frames."
+    )
     obs_id: str
     collection: str
     detector: int
@@ -254,6 +258,85 @@ class SpectrumResult(BaseModel):
     notes: list[str]
 
 
+class LightPoint(BaseModel):
+    """The target on one image, divided by itself at the same wavelength in the other images."""
+
+    mjd: float
+    residual: float = Field(description="1 = as usual; 1.2 = 20 % brighter than usual at that wavelength.")
+    method: Literal["aperture", "wings"] = Field(description="wings = saturated core, PSF wings used.")
+    lambda_um: float
+    pass_index: int
+    detector: int
+
+
+class ReferencePoint(BaseModel):
+    """A comparison star on one image (same kind of residual as the target's)."""
+
+    mjd: float
+    residual: float
+
+
+class VariabilityPass(BaseModel):
+    pass_index: int
+    n: int
+    median: float
+    error: float | None
+    mjd_start: float
+    mjd_end: float
+
+
+class BandCell(BaseModel):
+    median: float
+    n: int
+
+
+class BandRow(BaseModel):
+    """Median residual of one wavelength band in each survey pass (keys: pass index)."""
+
+    lambda_min_um: float
+    lambda_max_um: float
+    passes: dict[str, BandCell]
+
+
+class PeriodInfo(BaseModel):
+    period_d: float
+    power: float = Field(description="Lomb–Scargle power, 0 to 1.")
+    span_d: float
+    largest_gap_d: float
+    supported: bool = Field(description="False when the sampling cannot support this period.")
+    reference_power: float | None = None
+
+
+class Verdict(BaseModel):
+    variable: bool | None
+    threshold: float = Field(description="Scatter above which the target is called variable.")
+    text: str
+
+
+class VariabilityResult(BaseModel):
+    """Result of an /api/variability job."""
+
+    kind: Literal["variability"]
+    key: str
+    params: dict
+    collections: list[str]
+    n_images: int
+    n_available: int
+    light_curve: list[LightPoint]
+    reference: list[ReferencePoint]
+    n_comparison_stars: int
+    target_scatter: float | None
+    reference_scatter: float | None
+    wing_share: float = Field(description="Share of target points measured on the PSF wings.")
+    passes: list[VariabilityPass]
+    bands: list[BandRow]
+    period: PeriodInfo | None
+    verdict: Verdict
+    method: dict
+    skipped: list[SkippedImage]
+    notes: list[str]
+
+
 class JobStatus(BaseModel):
     """A long request: poll /api/jobs/{job_id} until status is done or failed."""
 
@@ -262,7 +345,7 @@ class JobStatus(BaseModel):
     status: Literal["queued", "running", "done", "failed"]
     progress: float = Field(description="0 to 1.")
     stage: str = Field(description="What is happening now, for the progress bar.")
-    result: BlinkResult | SpectrumResult | None = Field(None, discriminator="kind")
+    result: BlinkResult | SpectrumResult | VariabilityResult | None = Field(None, discriminator="kind")
     error: ErrorBody | None = None
 
 

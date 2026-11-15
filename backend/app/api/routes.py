@@ -19,6 +19,7 @@ from ..errors import BadRequest, NoCoverage, NotFound
 from ..imaging.grid import make_grid, to_fraction
 from ..pipeline import blink
 from ..pipeline import spectrum as spectrum_pipeline
+from ..pipeline import variability as variability_pipeline
 from ..pipeline.common import mjd_to_iso
 from ..spectra import classifier
 
@@ -132,6 +133,25 @@ def spectrum(
         epoch_mjd=epoch_mjd,
     )
     return spectrum_pipeline.start(params).to_dict()
+
+
+@router.get("/variability", response_model=schemas.JobStatus, responses=ERRORS)
+def variability(
+    ra_deg: float = RaDeg,
+    dec_deg: float = DecDeg,
+    pm_ra_masyr: float = PmRa,
+    pm_dec_masyr: float = PmDec,
+    epoch_mjd: float | None = EpochMjd,
+):
+    """Starts (or joins) the variability job: light curve of the target against constant stars."""
+    params = variability_pipeline.VariabilityParams(
+        ra_deg=round(ra_deg, 6),
+        dec_deg=round(dec_deg, 6),
+        pm_ra_masyr=pm_ra_masyr,
+        pm_dec_masyr=pm_dec_masyr,
+        epoch_mjd=epoch_mjd,
+    )
+    return variability_pipeline.start(params).to_dict()
 
 
 @router.get("/jobs/{job_id}", response_model=schemas.JobStatus, responses=ERRORS)
