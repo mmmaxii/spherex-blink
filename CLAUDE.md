@@ -14,10 +14,23 @@ nobody asked for.** Everything in the repo is in English (code, routes, URL para
 ## Architecture (decided)
 
 - `frontend/`: React + Vite + TypeScript on Vercel. State lives in the URL (`src/state/urlState.ts`).
-  Aladin Lite 3.8.2 from the CDS CDN. API types generated from FastAPI's `/openapi.json` (`npm run gen:api`).
-- `backend/`: FastAPI on Render (one instance, us-east, Python 3.12). All settings in `app/config.py`.
-  API contract in `app/api/routes.py`; unbuilt endpoints return 501.
-- `validation/`: notebooks comparing backend functions with astropy/reproject.
+  Components: `SearchForm`, `Player` (frames / stacked passes / difference, layers), `SpectrumPanel`,
+  `ContextMap` (Aladin Lite 3.8.2, loaded from the CDS CDN only when opened). API types generated from
+  FastAPI's `/openapi.json` (`npm run gen:api`, backend running) into `src/api/schema.d.ts`.
+- `backend/`: FastAPI on Render (one instance, one worker, us-east, Python 3.12). Layers, top to bottom:
+  `api/routes.py` (validation only) → `pipeline/` (ordered steps of a long request, run as background jobs)
+  → `data/`, `imaging/`, `spectra/` (one small function per step) → `core/` (HTTP retries, disk cache,
+  jobs, product files). All settings in `app/config.py`; answer shapes in `app/schemas.py`; errors in
+  `app/errors.py` (always `{"error": {"code", "message", "detail"}}`).
+- Long requests (`/api/frames`, `/api/spectrum`) answer at once with a job; the page polls
+  `/api/jobs/{id}`. The job id is a hash of the parameters, so equal requests share work, and results are
+  kept on disk under `.cache/products/` (a cache only: Render's disk is temporary).
+- `validation/`: notebooks where a step is tried and checked first. Code that passes moves into
+  `backend/app/` with a note of the notebook cell it came from.
+
+Not built: `spectra/photometry.measure()` and `spectra/classifier.classify()` (stubs; `/api/spectrum`
+answers 501 while `photometry.IMPLEMENTED` is False). The classifier loads `backend/models/classifier.joblib`
+when the file exists.
 
 ## Rules
 
@@ -49,3 +62,17 @@ nobody asked for.** Everything in the repo is in English (code, routes, URL para
   WISE 0855 258 / 3 (faint, D5–D6; today 2.1′ from the challenge's coordinates); RW Aur 335 / 3 complete
   passes; R Dra 539 / 3 (saturated, near the deep field).
 - All-sky cube: zodi subtracted, 12.88″ pixels, no time information → quick-look spectra only.
+
+## Measured on 2026-11-14
+
+- SIA straight from the URL with `RESPONSEFORMAT=CSV` and several `COLLECTION` parameters: ~2.5 s for 467
+  images (astroquery adds a "capabilities" request that fails at times).
+- One L2 cutout with astropy + fsspec takes ~15 range requests (headers of every extension, rows, compressed
+  flags, WCS-WAVE). From Chile ~1–3 s per image in parallel and bandwidth-bound; not measured on Render yet.
+- Flagged pixels (official recipe) must be hidden in the blink: cosmic-ray hits, persistence and halos change
+  from image to image and look like moving objects. The unmasked frame is served too (`raw_url`).
+- Sesame redirects to a mirror when Strasbourg is down (follow redirects); TAPVizieR and IRSA TAP timed out,
+  so overlays use the ESA Gaia TAP and the IRSA cone search (`SCS`, table `allwise_p3as_psd`).
+- SIMBAD does not know "WISE 0855-0714"; it knows "WISE J085510.83-071442.5" (alias in `data/resolve.py`).
+- `FINAST` >= 2 = astrometry unusable (image skipped). The "W" WCS wavelength is approximate (9 x 9 table).
+- `logging.getLogger("astropy")` before importing astropy breaks astropy's start-up (see `app/log.py`).
