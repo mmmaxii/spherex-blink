@@ -90,13 +90,15 @@ def assign_passes(images: list[ImageRef], gap_days: float | None = None) -> list
     return out
 
 
-def search(ra_deg: float, dec_deg: float) -> list[ImageRef]:
-    """Every image whose footprint contains the position, in all configured releases. Cached."""
+def search(ra_deg: float, dec_deg: float, collections: list[str] | None = None) -> list[ImageRef]:
+    """Every image whose footprint contains the position, in all configured releases (or in the
+    `collections` given, e.g. adding the deep-field ones for light curves). Cached."""
     s = get_settings()
-    key = cache.make_key("sia", ",".join(s.sia_collections), ra_deg, dec_deg, s.sia_radius_deg)
+    collections = collections or s.sia_collections
+    key = cache.make_key("sia", ",".join(collections), ra_deg, dec_deg, s.sia_radius_deg)
     rows = cache.get("sia", key, s.sia_cache_ttl_s)
     if rows is None:
-        params = [("COLLECTION", c) for c in s.sia_collections]
+        params = [("COLLECTION", c) for c in collections]
         params += [
             ("POS", f"circle {ra_deg:.6f} {dec_deg:.6f} {s.sia_radius_deg}"),
             ("RESPONSEFORMAT", "CSV"),
