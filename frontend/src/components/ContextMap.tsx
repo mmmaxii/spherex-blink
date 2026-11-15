@@ -7,6 +7,7 @@ import {
   type AladinView,
 } from "../sky/aladin";
 import { DEFAULT_SURVEY, SURVEYS, surveyById } from "../sky/surveys";
+import { SurveysInfo } from "../content/explanations";
 
 /**
  * The same field as seen by other telescopes (Aladin Lite, surveys served by IRSA). The map is
@@ -85,6 +86,7 @@ export function ContextMap({
         the SPHEREx images show it.
         {survey.note && ` ${survey.note}`}
       </p>
+      <SurveysInfo />
     </details>
   );
 }

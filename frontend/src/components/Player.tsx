@@ -7,6 +7,11 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { BlinkResult, FrameInfo, Overlay } from "../api/client";
 import type { Layer, View } from "../state/urlState";
+import {
+  FlagsInfo,
+  FrameFieldsInfo,
+  PlayerInfo,
+} from "../content/explanations";
 
 /** One step of the animation, whatever the view. */
 interface Item {
@@ -293,6 +298,7 @@ export function Player({
         </p>
       ))}
 
+      <PlayerInfo />
       {current?.frame && <FrameDetails frame={current.frame} />}
 
       <details className="notes">
@@ -383,6 +389,8 @@ function FrameDetails({ frame }: { frame: FrameInfo }) {
           <a href={frame.file_url}>{frame.obs_id} (FITS, 65 MB)</a>
         </dd>
       </dl>
+      <FrameFieldsInfo />
+      <FlagsInfo />
     </details>
   );
 }
