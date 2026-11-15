@@ -84,49 +84,96 @@ def _recipe_flags_in(cutout: Cutout, where: np.ndarray) -> list[str]:
     return sorted(n for n in names if n in flaglib.EXCLUDE_FOR_PHOTOMETRY)
 
 
+@dataclass(frozen=True)
+class _Sky:
+    level_mjysr: float  # sigma-clipped median of the annulus
+    std_mjysr: float  # pixel-to-pixel scatter of the sky
+    n_px: int  # clean pixels used
+
+
+def _bad_pixels(cutout: Cutout, image: np.ndarray) -> np.ndarray:
+    """True where a pixel must not be used: no value, or a flag of the official recipe."""
+    bad = ~np.isfinite(image)
+    if cutout.flags is not None:
+        bad |= flaglib.bad_mask(cutout.flags, cutout.flag_bits)
+    return bad
+
+
+def _sky(image: np.ndarray, bad: np.ndarray, x: float, y: float) -> _Sky:
+    """Sky level in the annulus around the target. Recipe-flagged pixels are left out; neighbour
+    stars that fall in the annulus are removed by the 3-sigma clipping (SOURCE is not left out)."""
+    s = get_settings()
+    annulus = CircularAnnulus((x, y), s.background_inner_px, s.background_outer_px)
+    in_annulus = annulus.to_mask(method="center").to_image(image.shape) > 0
+    values = image[in_annulus & ~bad]
+    if len(values) < MIN_SKY_PX:
+        raise FrameSkipped("not enough clean sky around the target")
+    _, median, std = sigma_clipped_stats(values, sigma=3.0)
+    return _Sky(level_mjysr=float(median), std_mjysr=float(std), n_px=len(values))
+
+
+def _aperture_weights(shape: tuple[int, int], x: float, y: float) -> np.ndarray:
+    """Fraction of each pixel inside the aperture circle (0 outside, 1 inside, partial at the edge)."""
+    aperture = CircularAperture((x, y), get_settings().aperture_radius_px)
+    return aperture.to_mask(method="exact").to_image(shape)
+
+
+def _light_on_bad_pixels(weights: np.ndarray, bad: np.ndarray, x: float, y: float) -> float:
+    """Share of the star's light in the aperture that falls on bad pixels, using a Gaussian of the
+    PSF width as the star's shape. 0 = no light lost, 1 = the whole core is flagged."""
+    yy, xx = np.mgrid[: weights.shape[0], : weights.shape[1]]
+    sigma = get_settings().psf_sigma_px
+    star = np.exp(-((xx - x) ** 2 + (yy - y) ** 2) / (2 * sigma**2)) * weights
+    return float(star[bad].sum() / star.sum())
+
+
 def measure(cutout: Cutout) -> Measurement:
     """Forced aperture photometry at (cutout.x_px, cutout.y_px). Raises FrameSkipped with a
     readable reason when this image cannot give a trustworthy flux."""
     s = get_settings()
     image = cutout.image_mjysr.astype(np.float64)
     x, y = cutout.x_px, cutout.y_px
-    edge = s.background_outer_px + 1
-    if not (edge <= x < image.shape[1] - edge and edge <= y < image.shape[0] - edge):
+
+    # 1. The aperture and the sky annulus must fit inside the cutout.
+    margin = s.background_outer_px + 1
+    if not (margin <= x < image.shape[1] - margin and margin <= y < image.shape[0] - margin):
         raise FrameSkipped("target too close to the detector edge")
 
-    bad = ~np.isfinite(image)
-    if cutout.flags is not None:
-        bad |= flaglib.bad_mask(cutout.flags, cutout.flag_bits)
+    # 2. Pixels to leave out, and the sky level around the target.
+    bad = _bad_pixels(cutout, image)
+    sky = _sky(image, bad, x, y)
 
-    ring = CircularAnnulus((x, y), s.background_inner_px, s.background_outer_px)
-    in_ring = ring.to_mask(method="center").to_image(image.shape) > 0
-    sky_values = image[in_ring & ~bad]
-    if len(sky_values) < MIN_SKY_PX:
-        raise FrameSkipped("not enough clean sky around the target")
-    _, sky, sky_std = sigma_clipped_stats(sky_values, sigma=3.0)
-
-    weight = CircularAperture((x, y), s.aperture_radius_px).to_mask(method="exact").to_image(image.shape)
-    yy, xx = np.mgrid[: image.shape[0], : image.shape[1]]
-    psf = np.exp(-((xx - x) ** 2 + (yy - y) ** 2) / (2 * s.psf_sigma_px**2)) * weight
-    lost = float(psf[bad].sum() / psf.sum())
+    # 3. How much of the star's light is on bad pixels. Too much = saturated or damaged core.
+    weights = _aperture_weights(image.shape, x, y)
+    lost = _light_on_bad_pixels(weights, bad, x, y)
     if lost > s.max_lost_light:
-        names = _recipe_flags_in(cutout, bad & (weight > 0))
+        names = _recipe_flags_in(cutout, bad & (weights > 0))
         reason = f"{100 * lost:.0f} % of the star's light falls on flagged pixels"
         raise FrameSkipped(f"{reason} ({', '.join(names)})" if names else reason)
 
-    good = (weight > 0) & ~bad
-    total = float(np.sum((image - sky)[good] * weight[good])) / (1 - lost)
-    area = float(weight.sum())
-    if cutout.variance is not None:
-        pixel_var = float(np.sum(cutout.variance[good] * weight[good] ** 2)) / (1 - lost) ** 2
-    else:
-        pixel_var = area * sky_std**2
-    sky_var = area**2 * sky_std**2 / len(sky_values)  # uncertainty of the sky level itself
+    # 4. Sum of (pixel - sky) over the good pixels, scaled up for the light that the bad ones held.
+    good = (weights > 0) & ~bad
+    total_mjysr_px = float(np.sum((image - sky.level_mjysr)[good] * weights[good])) / (1 - lost)
 
+    # 5. Statistical error: pixel noise (from the VARIANCE extension when it was read) plus the
+    #    uncertainty of the sky level that was subtracted from every aperture pixel.
+    area_px = float(weights.sum())
+    if cutout.variance is not None:
+        pixel_var = float(np.sum(cutout.variance[good] * weights[good] ** 2)) / (1 - lost) ** 2
+    else:
+        pixel_var = area_px * sky.std_mjysr**2
+    sky_var = area_px**2 * sky.std_mjysr**2 / sky.n_px
+
+    # 6. Wavelength of this pixel and conversion MJy/sr x (pixel solid angle) -> mJy.
     lambda_um, bandwidth_um, omega_arcsec2, source = _pixel_calibration(cutout)
-    to_mjy = omega_arcsec2 * ARCSEC2_TO_SR * 1e9  # MJy/sr summed over pixels -> mJy
-    flux_mjy = total * to_mjy
+    to_mjy = omega_arcsec2 * ARCSEC2_TO_SR * 1e9
+    flux_mjy = total_mjysr_px * to_mjy
     stat_err_mjy = math.sqrt(pixel_var + sky_var) * to_mjy
+
+    central_flags = []
+    if cutout.flags is not None:
+        central_flags = flaglib.names_at(cutout.flags, cutout.flag_bits, round(y), round(x))
+
     return Measurement(
         mjd=cutout.mjd,
         detector=cutout.ref.detector,
@@ -138,11 +185,9 @@ def measure(cutout: Cutout) -> Measurement:
         flux_mjy=flux_mjy,
         flux_err_mjy=math.hypot(stat_err_mjy, s.calibration_systematic * flux_mjy),
         stat_err_mjy=stat_err_mjy,
-        background_mjysr=float(sky),
-        n_bad_px=int(((weight > 0) & bad).sum()),
+        background_mjysr=sky.level_mjysr,
+        n_bad_px=int(((weights > 0) & bad).sum()),
         lost_fraction=lost,
-        flags=flaglib.names_at(cutout.flags, cutout.flag_bits, round(y), round(x))
-        if cutout.flags is not None
-        else [],
+        flags=central_flags,
         lambda_source=source,
     )
