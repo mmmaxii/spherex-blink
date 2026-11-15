@@ -83,7 +83,7 @@ function buildItems(result: BlinkResult, view: View, raw: boolean): Item[] {
         s.pass_index === null || s.pass_index === undefined
           ? "All passes together"
           : `Pass ${s.pass_index + 1} · ${day(s.date_start_utc)} to ${day(s.date_end_utc)}`,
-      subtitle: `${s.n_images} images added · ${s.lambda_min_um.toFixed(2)}–${s.lambda_max_um.toFixed(2)} µm`,
+      subtitle: `median of ${s.n_images} images · ${s.lambda_min_um.toFixed(2)}–${s.lambda_max_um.toFixed(2)} µm`,
       x: s.target_x_frac,
       y: s.target_y_frac,
       frame: null,
@@ -93,7 +93,7 @@ function buildItems(result: BlinkResult, view: View, raw: boolean): Item[] {
     url: d.url,
     flagsUrl: null,
     title: `Pass ${d.pass_index + 1} minus pass ${d.reference_pass_index + 1}`,
-    subtitle: `white = brighter later, black = fainter (±${d.limit_mjysr.toFixed(2)} MJy/sr)`,
+    subtitle: `white = brighter in pass ${d.pass_index + 1}, black = brighter in pass ${d.reference_pass_index + 1} (±${d.limit_mjysr.toFixed(2)} MJy/sr)`,
     x: null,
     y: null,
     frame: null,

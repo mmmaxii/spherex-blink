@@ -122,15 +122,16 @@ export function PlayerInfo() {
         </dd>
         <dt>Survey passes (stacked)</dt>
         <dd>
-          All the images of one survey pass (a few weeks, every ~6 months)
-          averaged together, with outliers removed: less noise, fainter objects,
-          but anything that moved during the pass is smeared or removed.
+          The median of all the images of one survey pass (a few weeks, every ~6
+          months): less noise, fainter objects, and whatever shows in only one
+          image (cosmic rays, something that moved) is removed.
         </dd>
         <dt>Difference</dt>
         <dd>
-          A later pass minus the first one. Grey means no change; white =
-          brighter later, black = fainter. A moving star leaves a white–black
-          pair. Bright stars leave residuals because the two passes see them at
+          A pass minus the reference pass (the first one with at least three
+          images). Grey means no change; white = brighter in that pass, black =
+          brighter in the reference. A moving star leaves a white–black pair.
+          Bright stars leave residuals because the two passes see them at
           different wavelengths.
         </dd>
         <dt>Target marker</dt>

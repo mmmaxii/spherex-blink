@@ -5,11 +5,12 @@ import type { BlinkResult, FrameInfo } from "../api/client";
  * Add or subtract any images the person chooses, in the browser.
  *
  * The backend writes each aligned frame as numbers (MJy/sr, background removed, float16, north up;
- * NaN = no data or a flagged pixel). Here each frame goes to group A, group B or neither:
- *   only A  → the average of A (more signal, less noise; what moves is smeared or removed)
- *   A and B → average of A minus average of B (what changed between them; a moving star leaves a
+ * NaN = no data or a detector defect). Here each frame goes to group A, group B or neither:
+ *   only A  → the median of A (less noise; what moves or flashes in one image is removed)
+ *   A and B → median of A minus median of B (what changed between them; a moving star leaves a
  *             white–black pair)
- * Pixels are averaged ignoring NaN, so flagged pixels never enter a sum.
+ * The median, as in the backend stacks (imaging/stack.py): a mean let one odd image or the holes
+ * of flagged pixels leave patches in the result.
  */
 
 type Group = "A" | "B" | null;
@@ -32,20 +33,27 @@ async function loadValues(url: string): Promise<Float32Array> {
   return values;
 }
 
-/** Per-pixel mean of the chosen frames, ignoring NaN. */
-function average(frames: Float32Array[]): Float32Array | null {
+/** Median of a few numbers (sorted in place). */
+function medianOf(values: number[]): number {
+  values.sort((a, b) => a - b);
+  const middle = values.length >> 1;
+  return values.length % 2
+    ? values[middle]
+    : (values[middle - 1] + values[middle]) / 2;
+}
+
+/** Per-pixel median of the chosen frames, ignoring NaN. */
+function median(frames: Float32Array[]): Float32Array | null {
   if (frames.length === 0) return null;
-  const sum = new Float32Array(frames[0].length);
-  const count = new Uint16Array(frames[0].length);
-  for (const frame of frames)
-    for (let i = 0; i < frame.length; i++)
-      if (Number.isFinite(frame[i])) {
-        sum[i] += frame[i];
-        count[i] += 1;
-      }
-  for (let i = 0; i < sum.length; i++)
-    sum[i] = count[i] ? sum[i] / count[i] : NaN;
-  return sum;
+  const out = new Float32Array(frames[0].length);
+  const pixel: number[] = [];
+  for (let i = 0; i < out.length; i++) {
+    pixel.length = 0;
+    for (const frame of frames)
+      if (Number.isFinite(frame[i])) pixel.push(frame[i]);
+    out[i] = pixel.length ? medianOf(pixel) : NaN;
+  }
+  return out;
 }
 
 /** Robust spread of the finite values (1.4826 × median absolute deviation). */
@@ -61,7 +69,7 @@ function robustSpread(values: Float32Array): number {
   return 1.4826 * deviations[Math.floor(deviations.length / 2)] || 1;
 }
 
-/** Values → gray levels: the same asinh scale as the frames for an average, a linear ±6σ scale
+/** Values → gray levels: the same asinh scale as the frames for a median, a linear ±6σ scale
  * centred on grey for a difference. NaN stays transparent. */
 function paint(
   canvas: HTMLCanvasElement,
@@ -139,12 +147,12 @@ export function CombineView({ result }: { result: BlinkResult }) {
 
   const combined = useMemo(() => {
     if (!values) return null;
-    const meanA = average(inA.map((i) => values[i]));
-    const meanB = average(inB.map((i) => values[i]));
-    if (!meanA) return null;
-    if (!meanB) return { pixels: meanA, difference: false };
-    const out = new Float32Array(meanA.length);
-    for (let i = 0; i < out.length; i++) out[i] = meanA[i] - meanB[i];
+    const medianA = median(inA.map((i) => values[i]));
+    const medianB = median(inB.map((i) => values[i]));
+    if (!medianA) return null;
+    if (!medianB) return { pixels: medianA, difference: false };
+    const out = new Float32Array(medianA.length);
+    for (let i = 0; i < out.length; i++) out[i] = medianA[i] - medianB[i];
     return { pixels: out, difference: true };
     // inA/inB are derived from groups
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,7 +200,7 @@ export function CombineView({ result }: { result: BlinkResult }) {
         )}
       </div>
       <p className="caption">
-        <strong>{combined?.difference ? "A − B" : "Average of A"}</strong> · A:{" "}
+        <strong>{combined?.difference ? "A − B" : "Median of A"}</strong> · A:{" "}
         {describe(inA)}
         {inB.length > 0 && ` · B: ${describe(inB)}`}
         {combined?.difference &&
