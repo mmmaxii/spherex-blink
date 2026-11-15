@@ -107,9 +107,9 @@ export function showSurvey(
   if (slice === undefined) return;
   let tries = 0;
   const timer = window.setInterval(() => {
-    const layer = view.getBaseImageLayer();
+    const layer = view.getBaseImageLayer() as AladinImageLayer | undefined; // undefined while it loads
     tries += 1;
-    if (layer.added && layer.cubeDepth && layer.setSliceNumber) {
+    if (layer?.added && layer.cubeDepth && layer.setSliceNumber) {
       layer.setSliceNumber(slice);
       window.clearInterval(timer);
     } else if (tries > 50) {
