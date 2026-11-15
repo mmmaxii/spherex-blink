@@ -17,6 +17,7 @@ import { ContextMap } from "../components/ContextMap";
 import { Player } from "../components/Player";
 import { SearchForm, type Query } from "../components/SearchForm";
 import { SpectrumPanel } from "../components/SpectrumPanel";
+import { AboutMission, DetectorsInfo } from "../content/explanations";
 import { rememberAnalysis } from "../state/recent";
 import {
   hasQuery,
@@ -53,11 +54,24 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const overlayRequests = useRef(new Set<string>());
+  // A catalogue that could not be loaded: shown next to the player, and its layer is switched off.
+  const [overlayError, setOverlayError] = useState<string | null>(null);
 
   // Every change of option goes through here so the URL always matches the screen.
   const update = (patch: Partial<ViewState>) =>
     setState((previous) => {
       const next = { ...previous, ...patch };
+      writeState(next);
+      return next;
+    });
+
+  // A layer whose catalogue failed is unticked (read from the latest state, not a stale copy).
+  const switchOffLayer = (layer: Catalog) =>
+    setState((previous) => {
+      const next = {
+        ...previous,
+        layers: previous.layers.filter((l) => l !== layer),
+      };
       writeState(next);
       return next;
     });
@@ -167,11 +181,13 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
           if (overlayRequests.current.has(key))
             setOverlays((all) => [...all, overlay]);
         })
-        .catch((e: unknown) =>
-          setError(
-            `${catalog === "gaia" ? "Gaia" : "WISE"} overlay: ${message(e)}`,
-          ),
-        );
+        .catch((e: unknown) => {
+          overlayRequests.current.delete(key); // allow a new try later
+          setOverlayError(
+            `${catalog === "gaia" ? "Gaia" : "WISE"} layer: ${message(e)}`,
+          );
+          switchOffLayer(catalog);
+        });
     }
   }, [target, state.fovArcmin, state.layers]);
 
@@ -195,16 +211,20 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
             </button>
             <h1>SPHEREx Blink</h1>
             <p>
-              Watch a patch of the infrared sky change over time. Enter
-              coordinates and blink the images NASA's SPHEREx telescope took of
-              that place on different dates.
+              How this patch of the infrared sky changed between the dates
+              NASA's SPHEREx telescope looked at it.
             </p>
           </header>
-          <SearchForm
-            initial={state}
-            busy={progress !== null}
-            onSearch={search}
-          />
+          <AboutMission />
+          {/* The field is chosen on the sky map; here it can still be changed by hand. */}
+          <details className="notes">
+            <summary>Change position or field of view</summary>
+            <SearchForm
+              initial={state}
+              busy={progress !== null}
+              onSearch={search}
+            />
+          </details>
         </>
       )}
 
@@ -258,6 +278,7 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
           ))}
         </div>
       )}
+      {coverage && !state.embed && <DetectorsInfo />}
 
       {result && (
         <Player
@@ -269,6 +290,12 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
           onView={(view) => update({ view })}
           onLayers={(layers) => update({ layers })}
         />
+      )}
+
+      {overlayError && (
+        <p className="notice small" role="alert">
+          {overlayError}
+        </p>
       )}
 
       {result && target && !state.embed && (
