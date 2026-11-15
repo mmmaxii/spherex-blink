@@ -18,6 +18,8 @@ export type StackInfo = Schemas["StackInfo"];
 export type DifferenceInfo = Schemas["DifferenceInfo"];
 export type SpectrumResult = Schemas["SpectrumResult"];
 export type SpectrumPoint = Schemas["SpectrumPoint"];
+export type VariabilityResult = Schemas["VariabilityResult"];
+export type LightPoint = Schemas["LightPoint"];
 export type Overlay = Schemas["Overlay"];
 export type Catalog = Overlay["catalog"];
 
@@ -182,6 +184,19 @@ export const getSpectrum = (
   runJob<SpectrumResult>(
     "/api/spectrum",
     { ...targetParams(target), mode: "pass" },
+    onProgress,
+    signal,
+  );
+
+/** Light curve of the target against constant stars of the same images (a background job). */
+export const getVariability = (
+  target: Target,
+  onProgress: (progress: number, stage: string) => void,
+  signal?: AbortSignal,
+) =>
+  runJob<VariabilityResult>(
+    "/api/variability",
+    targetParams(target),
     onProgress,
     signal,
   );
