@@ -296,7 +296,11 @@ export function Player({
 
       {!compact && (
         <>
-          <LayerToggles layers={layers} overlays={overlays} onLayers={onLayers} />
+          <LayerToggles
+            layers={layers}
+            overlays={overlays}
+            onLayers={onLayers}
+          />
           <PlayerInfo />
         </>
       )}

@@ -12,13 +12,18 @@ import { SurveysInfo } from "../content/explanations";
 /**
  * The same field as seen by other telescopes (Aladin Lite, surveys served by IRSA). The map is
  * created only when the person opens this panel, because the library is large.
+ *
+ * Two ways to show it: a collapsible box (default), or a view of the analysis page's stage
+ * (`active` given: the map is created the first time that view is on screen).
  */
 export function ContextMap({
   target,
   fovArcmin,
+  active,
 }: {
   target: Target;
   fovArcmin: number;
+  active?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const view = useRef<AladinView | null>(null);
@@ -26,10 +31,11 @@ export function ContextMap({
   const [surveyId, setSurveyId] = useState(DEFAULT_SURVEY.id);
   const [error, setError] = useState<string | null>(null);
   const survey = surveyById(surveyId);
+  const shown = active ?? open;
 
   // Create the map the first time the panel opens; afterwards only move it.
   useEffect(() => {
-    if (!open || !box.current) return;
+    if (!shown || !box.current) return;
     const fovDeg = (fovArcmin * 2) / 60; // a bit wider than the SPHEREx field, for context
     if (view.current) {
       view.current.gotoRaDec(target.ra_deg, target.dec_deg);
@@ -56,15 +62,14 @@ export function ContextMap({
     };
     // The survey is applied by its own effect below; here it only sets the first view.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, target, fovArcmin]);
+  }, [shown, target, fovArcmin]);
 
   useEffect(() => {
     if (view.current) showSurvey(view.current, survey.url, survey.slice);
   }, [survey]);
 
-  return (
-    <details className="notes" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>The same field seen by other telescopes</summary>
+  const content = (
+    <>
       <label>
         Survey{" "}
         <select value={surveyId} onChange={(e) => setSurveyId(e.target.value)}>
@@ -87,6 +92,20 @@ export function ContextMap({
         {survey.note && ` ${survey.note}`}
       </p>
       <SurveysInfo />
+    </>
+  );
+
+  if (active !== undefined)
+    return (
+      <section className="context-map">
+        <h2>The same field seen by other telescopes</h2>
+        {content}
+      </section>
+    );
+  return (
+    <details className="notes" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>The same field seen by other telescopes</summary>
+      {content}
     </details>
   );
 }
