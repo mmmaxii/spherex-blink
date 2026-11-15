@@ -32,7 +32,7 @@ from ..data import calibration
 from ..data import flags as flaglib
 from ..data.l2 import Cutout, FrameSkipped
 
-IMPLEMENTED = False
+IMPLEMENTED = True  # validated on eps Ind B, 15 Nov 2026 (see the module docstring)
 
 ARCSEC2_TO_SR = (math.pi / 180 / 3600) ** 2
 MIN_SKY_PX = 15  # clean annulus pixels needed for a sky level
