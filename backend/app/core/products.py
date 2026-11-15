@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 _SAFE_KEY = re.compile(r"^[a-f0-9]{8,40}$")
 _SAFE_KIND = re.compile(r"^[a-z]{2,20}$")
-_SAFE_NAME = re.compile(r"^[a-z0-9_]{1,40}\.(png|gif|json|csv)$")
+_SAFE_NAME = re.compile(r"^[a-z0-9_]{1,40}\.(png|gif|json|csv|bin)$")
 MANIFEST = "manifest.json"
 
 

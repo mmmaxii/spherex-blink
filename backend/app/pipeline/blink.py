@@ -34,7 +34,7 @@ from ..imaging.grid import Grid, make_grid, to_fraction
 from .common import for_each_image, mjd_to_iso, read_cutout_with_retries, start_job, weekly_tag
 
 KIND = "blink"
-PIPELINE_VERSION = "3"  # raise it when the output changes, so stored products are not reused
+PIPELINE_VERSION = "4"  # raise it when the output changes, so stored products are not reused
 
 NOTES = [
     "Each image had its median level subtracted (zodiacal light) so frames can be compared.",
@@ -216,11 +216,13 @@ def run(params: BlinkParams, progress: Progress) -> dict[str, Any]:
         render.save_frame(picture, stretch, folder / f"frame_{index:03d}.png")
         render.save_frame(frame.raw, stretch, folder / f"raw_{index:03d}.png")
         render.save_mask(frame.bad, folder / f"flags_{index:03d}.png")
+        render.save_values(frame.clean, folder / f"data_{index:03d}.bin")  # for "Add / subtract"
         frame.info = {
             "index": index,
             "url": store.url(KIND, key, f"frame_{index:03d}.png"),
             "raw_url": store.url(KIND, key, f"raw_{index:03d}.png"),
             "flags_url": store.url(KIND, key, f"flags_{index:03d}.png"),
+            "data_url": store.url(KIND, key, f"data_{index:03d}.bin"),
             **frame.info,
         }
 

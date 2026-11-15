@@ -88,6 +88,13 @@ def save_difference(data: np.ndarray, path: Path, n_sigma: float = 6.0) -> float
     return limit
 
 
+def save_values(data: np.ndarray, path: Path) -> None:
+    """The aligned values themselves (MJy/sr, background removed), north up, as little-endian
+    float16: the page adds or subtracts any set of frames chosen by the person. NaN = no data or a
+    flagged pixel (never filled here: sums must not use invented values). ~27 KB for 117 x 117 px."""
+    data[::-1].astype("<f2").tofile(path)
+
+
 def save_mask(mask: np.ndarray, path: Path, rgba: tuple[int, int, int, int] = (255, 64, 64, 150)) -> None:
     """Transparent PNG with the masked pixels painted, to lay over a frame."""
     out = np.zeros((*mask.shape, 4), dtype=np.uint8)
