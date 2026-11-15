@@ -4,8 +4,11 @@ Web tool to watch the SPHEREx infrared sky change over time: enter sky coordinat
 different dates, and spot objects that move or vary. Built for the NASA Space Apps Challenge 2026
 ("Planet X and SPHEREx").
 
-> Work in progress, built during the hackathon. Images, stacks, differences, overlays and spectra work with
-> real data; the classification of spectra is not built yet (see "Status").
+> Built during the hackathon. Images, stacks, differences, adding/subtracting frames, overlays, spectra and
+> light curves work with real data; the classification of spectra is not built yet (see "Status").
+
+Live: https://spherex-blink-umber.vercel.app (backend on Render's free plan: the first request after
+15 idle minutes waits ~1 min while it wakes up).
 
 ## Architecture
 
@@ -23,8 +26,8 @@ Two pages, one address:
   detector with most images, and "Full analysis" opens the second page. Missions from ultraviolet to
   sub-mm (GALEX, DSS2, 2MASS, the SPHEREx all-sky cube at 2.04 µm, Spitzer, WISE, Herschel, Planck),
   all served by IRSA. The menu keeps the last five analyses in the browser.
-- `/?ra=…&dec=…` or `/?target=…` **full analysis**: player, detectors, stacks, differences, overlays,
-  spectrum and context map. Every option is in the address, so it can be shared or embedded.
+- `/?ra=…&dec=…` or `/?target=…` **full analysis**: player, detectors, stacks, differences, add/subtract,
+  overlays, spectrum, brightness changes and context map. Every option is in the address, so it can be shared or embedded.
 
 What happens when someone analyses a position:
 
@@ -40,6 +43,13 @@ What happens when someone analyses a position:
 5. `GET /api/spectrum`: same job mechanism. Measures the target on every image (one wavelength per image),
    with the wavelength and pixel solid angle of that exact pixel from the calibration maps, and returns the
    points grouped by survey pass, so passes can be compared at the same wavelength.
+6. `GET /api/variability`: same job mechanism. Measures the target and comparison stars on every image
+   (wide and deep surveys, up to 600 images) and returns the light curve, the verdict, a period when the
+   sampling supports one, and the median per survey pass and wavelength band.
+
+Every image is read from S3 with 4 HTTP Range requests (6 with the variance): the headers, the rows of
+IMAGE around the position, the FLAGS row index and the compressed rows, decoded with astropy's RICE
+codec. Pixels identical to astropy on real DR1/QR3 files; one light curve went from 52 to ~4 min.
 
 Backend layout (`backend/app/`):
 
@@ -52,8 +62,8 @@ core/         HTTP with retries, disk cache, background jobs, product files
 data/         resolve.py, sia.py, l2.py (partial reads from S3), flags.py, catalogs.py,
               calibration.py (per-pixel wavelength and solid angle, downloaded once)
 imaging/      grid.py, align.py, background.py, stack.py, render.py
-spectra/      photometry.py (aperture photometry, validated) and classifier.py (stub)
-pipeline/     blink.py and spectrum.py: the ordered steps of each long request
+spectra/      photometry.py (aperture photometry), variability.py (light curves), classifier.py (stub)
+pipeline/     blink.py, spectrum.py, variability.py: the ordered steps of each long request
 ```
 
 ## The challenge, point by point
@@ -65,7 +75,8 @@ pipeline/     blink.py and spectrum.py: the ordered steps of each long request
 | Easy to update with new data releases | `sia_collections` in `config.py` or `SPHEREX_SIA_COLLECTIONS`; results are recomputed weekly |
 | Use the 102 bands; add images per detector | detector picker (6 wavelength ranges); "Survey passes (stacked)" view |
 | Spectra on the fly | "Measure the spectrum" → `/api/spectrum`: one point per image, 0.75–5 µm, one colour per pass |
-| Add or subtract images of different dates | stacks per survey pass; "Difference" view (pass − first pass) |
+| Add or subtract images of different dates | stacks per survey pass; "Difference" view (pass − first pass); "Add / subtract" tab: any frames in group A minus any in group B, computed in the browser from the aligned values |
+| See how the sky changes over time | "Brightness changes" → `/api/variability`: light curve against constant stars, verdict and period |
 | Choose the field of view | 3–20 arcmin |
 | Overlay Gaia / WISE | layer checkboxes → `/api/overlay`; Gaia positions moved with their proper motions |
 | Coordinates in the URL, embeddable | every option lives in the URL; `&embed=1` shows only the player |
@@ -75,7 +86,7 @@ pipeline/     blink.py and spectrum.py: the ordered steps of each long request
 ## Status
 
 Checked with real data on 2026-11-14 (eps Ind B and WISE 0855 end to end; the five targets resolve and have
-3–4 survey passes each). 53 offline tests + 4 live tests.
+3–4 survey passes each). 75 offline tests + 4 live tests.
 
 Not validated yet, and labelled as such in the code (`VERIFY`):
 
@@ -97,8 +108,32 @@ Spectra (validated on 2026-11-15 with eps Ind B, all 463 images, from Chile in 1
 - result: 412 points, identical to the validation notebook on the 391 clean images (median ratio 1.0000);
   the four passes agree within 0.03 % on average, with 4 % scatter per point; the T-dwarf bands
   (H₂O at 1.4 and 1.9 µm, CH₄ from 2.2 to 3.5 µm) are clear;
-- not handled: saturated targets (Barnard, R Dra; RW Aur at some wavelengths) get no point there; their
-  variability can be followed with the PSF wings in relative units (validation notebook 04), not yet here.
+- saturated targets (Barnard, R Dra; RW Aur at some wavelengths) get no spectrum point there; the page
+  says so and points to "Brightness changes", which follows them with the PSF wings.
+
+Brightness changes (validated on 2026-11-15, notebook 04 and the backend on the five targets):
+- each measurement is divided by the same star at the same wavelength (± half a band) in the other
+  images, so colour does not look like variability. Comparison stars (detected above 10σ, isolated, in a
+  301 × 301 px piece) give what "constant" looks like. A per-image zero point is not applied: the real
+  calibration error per image (0.4–0.9 %) is below the comparison-star noise;
+- saturated targets (aperture fails on ≥ 30 % of images) are measured with the PSF wings (ring of 9–14 px
+  minus the sky at 20–28 px), in relative units. Barnard's Star (quiet) shows the wings can fake changes
+  up to ~15 %, so the threshold is higher for them;
+- verdict: variable when the scatter is above max(3 × comparison scatter, 5 %), or 15 % with wings. The
+  5 % floor is the smallest change recovered in an injection test (10 % sinusoid → 9.5 %, right period);
+- period (Lomb–Scargle) only when power ≥ 0.25, the images span ≥ 1.5 periods without a gap longer than
+  half a period, and the comparison stars show no period (power < 0.1);
+- results: eps Ind B no change (5.2 % against 3.5 % for 12 comparison stars); RW Aur variable (41 %
+  against 3.1 %, medians ×0.86, ×1.01, ×1.22 in its three passes, and a colour change); Barnard no change
+  above 15 %; R Dra (saturated, 600 images) repeats every 244.6 days, its catalogue period is ~245 d;
+- speed on Render's free plan: ~0.3 images/s, so a 335-image light curve takes ~20 min. Results are
+  cached on disk until the service restarts.
+
+Add / subtract (checked in the browser on 2026-11-15):
+- each frame's aligned values (MJy/sr, sky removed, flagged pixels as NaN) are served as a float16 file
+  (`data_url`, ~0.1 MB). The page averages group A and group B ignoring NaN and shows A − B on a ±6σ
+  scale. Frames of one detector see the position at different wavelengths: a residual is not a change
+  by itself unless both groups cover the same wavelengths (pick frames of the same pass position).
 
 Sky map notes (checked 2026-11-15):
 - Aladin Lite 3.8.2 is bundled from npm (`aladin-lite`), not loaded from the CDS server: that server
