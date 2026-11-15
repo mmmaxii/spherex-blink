@@ -135,3 +135,16 @@ def test_the_key_changes_with_the_request_and_not_otherwise():
     assert _params().key() == _params().key()
     assert _params().key() != _params(detector=5).key()
     assert _params().key() != _params(fov_arcmin=6.0).key()
+
+
+def test_frames_come_with_their_values_for_adding_and_subtracting(monkeypatch):
+    _fake_archive(monkeypatch)
+    manifest = blink.run(_params(), lambda *_: None)
+    frame = manifest["frames"][0]
+    name = frame["data_url"].rsplit("/", 1)[-1]
+    values = np.fromfile(get_product_store().file("blink", manifest["key"], name), dtype="<f2")
+    grid = manifest["grid"]
+    assert values.size == grid["width_px"] * grid["height_px"]
+    picture = np.asarray(Image.open(get_product_store().file("blink", manifest["key"], "frame_000.png")))
+    assert picture.shape[:2] == (grid["height_px"], grid["width_px"])  # same orientation and size
+    assert np.isnan(values).any() and np.isfinite(values).sum() > 0.5 * values.size  # flagged = NaN
