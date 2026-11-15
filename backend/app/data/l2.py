@@ -146,7 +146,7 @@ def _read_flags(url: str, header_start: int, r0: int, r1: int, c0: int, c1: int)
     for n_bytes, offset in wanted:
         compressed = np.frombuffer(heap[offset - first : offset - first + n_bytes], dtype=np.uint8)
         rows.append(np.asarray(codec.decode(compressed)).view("<i4")[:width])
-    flags = np.stack(rows)[:, c0:c1]
+    flags = np.stack(rows)[:, c0:c1].copy()  # a copy: a slice would keep the full rows alive
 
     next_extension = table_start + _padded(n_rows * row_size + int(header.get("PCOUNT", 0)))
     return flags, flaglib.bit_names(header), next_extension

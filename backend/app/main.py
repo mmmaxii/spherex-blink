@@ -22,12 +22,14 @@ from .api.routes import router
 from .config import get_settings
 from .core.http import close_client
 from .core.jobs import get_job_manager
+from .core.memory import limit_pools
 from .core.products import get_product_store
 from .errors import AppError, error_body
 from .log import setup_logging
 
 settings = get_settings()
 setup_logging()
+limit_pools()  # before any job thread starts (see core/memory.py)
 log = logging.getLogger("app")
 
 

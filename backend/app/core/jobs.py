@@ -23,6 +23,7 @@ from typing import Any, Literal
 
 from ..config import get_settings
 from ..errors import AppError, Busy, error_body
+from .memory import give_back
 
 log = logging.getLogger(__name__)
 
@@ -123,6 +124,7 @@ class JobManager:
             log.exception("job %s (%s) crashed", job.id, job.kind)
         finally:
             job.finished_at = time.time()
+            give_back()  # hand the job's freed memory back to the system
 
     def _forget_old(self) -> None:
         now = time.time()
