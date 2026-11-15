@@ -1,5 +1,7 @@
 # Render Blueprint for the FastAPI backend (one instance).
 # Region close to the SPHEREx S3 bucket (us-east-1). Choose a plan with >= 1-2 GB RAM that does not sleep.
+# Keep ONE worker: background jobs live in the memory of the process (backend/app/core/jobs.py).
+# Settings are overridden with SPHEREX_* environment variables (see backend/.env.example).
 services:
   - type: web
     name: spherex-blink-api
@@ -7,7 +9,7 @@ services:
     region: virginia
     rootDir: backend
     buildCommand: pip install -r requirements.txt && pip install --no-deps .
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
