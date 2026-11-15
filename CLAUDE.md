@@ -13,10 +13,14 @@ nobody asked for.** Everything in the repo is in English (code, routes, URL para
 
 ## Architecture (decided)
 
-- `frontend/`: React + Vite + TypeScript on Vercel. State lives in the URL (`src/state/urlState.ts`).
-  Components: `SearchForm`, `Player` (frames / stacked passes / difference, layers), `SpectrumPanel`,
-  `ContextMap` (Aladin Lite 3.8.2, loaded from the CDS CDN only when opened). API types generated from
-  FastAPI's `/openapi.json` (`npm run gen:api`, backend running) into `src/api/schema.d.ts`.
+- `frontend/`: React + Vite + TypeScript on Vercel. Two pages chosen by the URL in `App.tsx`:
+  `pages/ExplorePage` (no position in the URL: full-screen sky map, field picked by click, quick-look
+  preview, last five analyses in localStorage) and `pages/AnalysisPage` (`?ra&dec` or `?target`: the
+  full analysis; its state lives in the URL, `src/state/urlState.ts`). Sky map: `components/SkyMap` +
+  `src/sky/` (Aladin Lite 3.8.2 bundled from npm, surveys from IRSA's HiPS copies, coordinate formats).
+  Other components: `Player`, `SpectrumPanel`, `ContextMap`, `SelectionPanel`, `RecentMenu`,
+  `SurveyBar`, `StatusBar`, `PreviewLoop`. API types generated from FastAPI's `/openapi.json`
+  (`npm run gen:api`, backend running) into `src/api/schema.d.ts`.
 - `backend/`: FastAPI on Render (one instance, one worker, us-east, Python 3.12). Layers, top to bottom:
   `api/routes.py` (validation only) → `pipeline/` (ordered steps of a long request, run as background jobs)
   → `data/`, `imaging/`, `spectra/` (one small function per step) → `core/` (HTTP retries, disk cache,
@@ -96,3 +100,7 @@ Code style: small functions with clear names and comments that say why; no dense
   error per image is ~0.4–0.9 %, below the comparison-star noise.
 - One spectrum with all 463 images took 11 min from Chile with astropy + fsspec. A reader that asks S3 only
   for the header and the needed rows (4 requests per image) took ~1 min in the notebooks.
+- CDS (Strasbourg) answered 404 for the Aladin script and its survey tiles on 15 Nov: Aladin is bundled
+  from npm and surveys use IRSA URLs. Aladin takes over the element it is mounted on (CSS position), so
+  size and pointer listeners live on an outer element (`SkyMap`). Check UI changes in a real browser
+  (Playwright with the local Chrome, `channel="chrome"`, swiftshader for WebGL) before committing.
