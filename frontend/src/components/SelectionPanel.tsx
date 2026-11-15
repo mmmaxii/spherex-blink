@@ -167,7 +167,6 @@ export function SelectionPanel(props: Props) {
       )}
       {quickLook.status === "done" && (
         <section className="quick-look" aria-label="Preview">
-          <PreviewLoop result={quickLook.result} />
           <p className="small">
             <strong>{quickLook.target.name ?? "This position"}</strong>:{" "}
             {quickLook.coverage.n_images} SPHEREx images in{" "}
@@ -181,6 +180,7 @@ export function SelectionPanel(props: Props) {
           >
             Full analysis →
           </button>
+          <PreviewLoop result={quickLook.result} />
         </section>
       )}
       <ManualPosition

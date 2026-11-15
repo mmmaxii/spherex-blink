@@ -421,6 +421,15 @@ button[aria-selected="true"] {
   color: var(--muted);
 }
 
+.legend span,
+.legend label {
+  white-space: nowrap;
+}
+
+.log-toggle {
+  margin-left: auto;
+}
+
 .legend span {
   display: inline-flex;
   gap: 5px;
@@ -782,6 +791,56 @@ dialog.info li {
   margin: 3px 0;
 }
 
+/* (i) notes: closed by default, one click away. */
+.info-note {
+  margin: 10px 0;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.92rem;
+}
+
+.info-note summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.info-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font:
+    italic 700 0.75rem Georgia,
+    serif;
+}
+
+.info-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.info-body th,
+.info-body td {
+  text-align: left;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.info-body dt {
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.info-body dd {
+  margin: 0 0 4px;
+}
+
 /* Phones and narrow windows: the panel becomes a sheet at the bottom, missions scroll sideways. */
 @media (max-width: 760px) {
   .selection {
@@ -812,5 +871,15 @@ dialog.info li {
 
   .status-bar span:last-child {
     display: none;
+  }
+
+  /* On phones the preview is small so the "Full analysis" button stays in view. */
+  .preview-picture {
+    width: min(100%, 170px);
+  }
+
+  .info-body table {
+    display: block;
+    overflow-x: auto;
   }
 }
