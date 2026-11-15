@@ -151,7 +151,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** BlinkResult */
+        /**
+         * BlinkResult
+         * @description Result of an /api/frames job.
+         */
         BlinkResult: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -189,14 +192,20 @@ export interface components {
             /** Notes */
             notes: string[];
         };
-        /** ClassAlternative */
+        /**
+         * ClassAlternative
+         * @description Another class the model considered.
+         */
         ClassAlternative: {
             /** Label */
             label: string;
             /** Probability */
             probability: number | null;
         };
-        /** Classification */
+        /**
+         * Classification
+         * @description What the model says the object is. Null when no model is installed.
+         */
         Classification: {
             /** Label */
             label: string;
@@ -209,7 +218,10 @@ export interface components {
             /** Alternatives */
             alternatives: components["schemas"]["ClassAlternative"][];
         };
-        /** Coverage */
+        /**
+         * Coverage
+         * @description /api/coverage: what SPHEREx has at a position, without reading any image.
+         */
         Coverage: {
             /** Ra Deg */
             ra_deg: number;
@@ -224,7 +236,10 @@ export interface components {
             /** Passes */
             passes: components["schemas"]["CoveragePass"][];
         };
-        /** CoverageDetector */
+        /**
+         * CoverageDetector
+         * @description Images of one detector over a position, with its wavelength range.
+         */
         CoverageDetector: {
             /** Detector */
             detector: number;
@@ -235,7 +250,10 @@ export interface components {
             /** Lambda Max Um */
             lambda_max_um: number;
         };
-        /** CoveragePass */
+        /**
+         * CoveragePass
+         * @description One survey pass: a burst of images separated from the next by months.
+         */
         CoveragePass: {
             /** Pass Index */
             pass_index: number;
@@ -252,7 +270,10 @@ export interface components {
             /** Collections */
             collections: string[];
         };
-        /** DifferenceInfo */
+        /**
+         * DifferenceInfo
+         * @description A pass stack minus the first pass stack.
+         */
         DifferenceInfo: {
             /** Pass Index */
             pass_index: number;
@@ -266,7 +287,10 @@ export interface components {
              */
             limit_mjysr: number;
         };
-        /** ErrorBody */
+        /**
+         * ErrorBody
+         * @description The one error shape every failing request answers with.
+         */
         ErrorBody: {
             /**
              * Code
@@ -286,11 +310,17 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** ErrorResponse */
+        /**
+         * ErrorResponse
+         * @description Envelope of an error answer.
+         */
         ErrorResponse: {
             error: components["schemas"]["ErrorBody"];
         };
-        /** FrameInfo */
+        /**
+         * FrameInfo
+         * @description One image of the series, with what is needed to judge it.
+         */
         FrameInfo: {
             /** Index */
             index: number;
@@ -390,7 +420,10 @@ export interface components {
              */
             file_url: string;
         };
-        /** GridInfo */
+        /**
+         * GridInfo
+         * @description The north-up grid every picture of a result is drawn on.
+         */
         GridInfo: {
             /** Ra Deg */
             ra_deg: number;
@@ -407,7 +440,10 @@ export interface components {
             /** Orientation */
             orientation: string;
         };
-        /** Health */
+        /**
+         * Health
+         * @description /api/health: what is configured and which features are ready.
+         */
         Health: {
             /** Status */
             status: string;
@@ -424,7 +460,10 @@ export interface components {
             /** Classifier Ready */
             classifier_ready: boolean;
         };
-        /** JobStatus */
+        /**
+         * JobStatus
+         * @description A long request: poll /api/jobs/{job_id} until status is done or failed.
+         */
         JobStatus: {
             /** Job Id */
             job_id: string;
@@ -449,7 +488,10 @@ export interface components {
             result?: (components["schemas"]["BlinkResult"] | components["schemas"]["SpectrumResult"]) | null;
             error?: components["schemas"]["ErrorBody"] | null;
         };
-        /** Overlay */
+        /**
+         * Overlay
+         * @description /api/overlay: sources of another mission inside the field.
+         */
         Overlay: {
             /**
              * Catalog
@@ -463,7 +505,10 @@ export interface components {
             /** Sources */
             sources: components["schemas"]["OverlaySource"][];
         };
-        /** OverlaySource */
+        /**
+         * OverlaySource
+         * @description A catalogue source placed on the frame (x, y as fractions from the top-left).
+         */
         OverlaySource: {
             /** Id */
             id: string;
@@ -483,7 +528,10 @@ export interface components {
             /** Y Frac */
             y_frac: number;
         };
-        /** SkippedImage */
+        /**
+         * SkippedImage
+         * @description An image left out, and why.
+         */
         SkippedImage: {
             /** Obs Id */
             obs_id: string;
@@ -492,7 +540,10 @@ export interface components {
             /** Reason */
             reason: string;
         };
-        /** SpectrumPass */
+        /**
+         * SpectrumPass
+         * @description The points of one survey pass.
+         */
         SpectrumPass: {
             /** Pass Index */
             pass_index: number;
@@ -503,7 +554,10 @@ export interface components {
             /** Mjd End */
             mjd_end: number;
         };
-        /** SpectrumPoint */
+        /**
+         * SpectrumPoint
+         * @description The target measured on one image: one wavelength, one date.
+         */
         SpectrumPoint: {
             /** Mjd */
             mjd: number;
@@ -517,7 +571,10 @@ export interface components {
             obs_id: string;
             /** Pass Index */
             pass_index: number;
-            /** Lambda Um */
+            /**
+             * Lambda Um
+             * @description Wavelength of the target's pixel (spectral WCS map).
+             */
             lambda_um: number;
             /** Bandwidth Um */
             bandwidth_um: number;
@@ -526,16 +583,48 @@ export interface components {
              * @description Millijansky.
              */
             flux_mjy: number;
-            /** Flux Err Mjy */
+            /**
+             * Flux Err Mjy
+             * @description Statistical and 3 % calibration error, in quadrature.
+             */
             flux_err_mjy: number;
+            /**
+             * Stat Err Mjy
+             * @description Statistical part of the error only.
+             */
+            stat_err_mjy: number;
             /** Background Mjysr */
             background_mjysr: number;
-            /** N Bad Px */
+            /**
+             * N Bad Px
+             * @description Flagged pixels left out of the aperture.
+             */
             n_bad_px: number;
-            /** Flags */
+            /**
+             * Lost Fraction
+             * @description Share of the star's light on those pixels (corrected for).
+             */
+            lost_fraction: number;
+            /**
+             * Flags
+             * @description Flag names on the central pixel.
+             */
             flags: string[];
+            /**
+             * Lambda Source
+             * @enum {string}
+             */
+            lambda_source: "spectral_wcs" | "wcs-wave";
+            /**
+             * Suspect
+             * @description Far from the other points of the same pass at the same wavelength (shown, not removed).
+             */
+            suspect: boolean;
         };
-        /** SpectrumResult */
+        /**
+         * SpectrumResult
+         * @description Result of an /api/spectrum job.
+         */
         SpectrumResult: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -560,7 +649,10 @@ export interface components {
             /** Notes */
             notes: string[];
         };
-        /** StackInfo */
+        /**
+         * StackInfo
+         * @description Images of a survey pass (or of all of them) added together.
+         */
         StackInfo: {
             /**
              * Pass Index
@@ -588,7 +680,10 @@ export interface components {
             /** Target Y Frac */
             target_y_frac: number;
         };
-        /** StretchInfo */
+        /**
+         * StretchInfo
+         * @description The brightness scale shared by every frame and stack of a result.
+         */
         StretchInfo: {
             /** Kind */
             kind: string;
@@ -599,7 +694,10 @@ export interface components {
             /** Asinh A */
             asinh_a: number;
         };
-        /** Target */
+        /**
+         * Target
+         * @description /api/resolve: a position SPHEREx can be asked for.
+         */
         Target: {
             /** Name */
             name: string | null;
