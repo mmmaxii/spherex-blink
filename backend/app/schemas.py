@@ -164,6 +164,11 @@ class DifferenceInfo(BaseModel):
     reference_pass_index: int
     url: str
     limit_mjysr: float = Field(description="Black = −limit, white = +limit.")
+    change_url: str = Field(
+        description="The same difference relative to each star's brightness: orange = brighter, "
+        "blue = fainter, grey = stars that stayed the same, black = sky."
+    )
+    change_threshold: float = Field(description="Smallest relative change coloured (0.1 = 10 %).")
 
 
 class SkippedImage(BaseModel):

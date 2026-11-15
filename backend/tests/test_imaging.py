@@ -132,3 +132,24 @@ def test_fill_hidden_fills_flagged_pixels_but_not_missing_data():
     assert np.isfinite(picture[5:25, 10:30]).all()  # every flagged pixel has a value now
     assert np.isnan(picture[:, :5]).all()  # "no data" stays transparent
     assert np.isfinite(clean[5:25, 10:30]).sum() == 0  # the input (used for measuring) is untouched
+
+
+def test_relative_change_shows_only_the_star_that_changed(tmp_path):
+    rng = np.random.default_rng(3)
+    yy, xx = np.mgrid[:90, :90]
+
+    def star(x, y, flux):
+        return flux * np.exp(-((xx - x) ** 2 + (yy - y) ** 2) / (2 * 1.5**2))
+
+    constant = sum(star(x, y, 5) for x in (15, 45, 75) for y in (15, 45, 75) if (x, y) != (45, 45))
+    earlier = rng.normal(0, 0.01, (90, 90)) + constant + star(45, 45, 5)
+    later = rng.normal(0, 0.01, (90, 90)) + constant + star(45, 45, 10)  # the middle one doubles
+    change = stacking.relative_change(later.astype(np.float32), earlier.astype(np.float32))
+    assert abs(change.relative[15, 15]) < change.threshold  # constant star: not coloured
+    assert change.relative[45, 45] > 0.5  # 2x brighter: (10 - 5) / 7.5 = 0.67
+    assert np.isnan(change.relative[30, 5])  # sky is not a star
+    render.save_change(change.relative, change.has_data, change.threshold, tmp_path / "c.png")
+    rgba = np.asarray(Image.open(tmp_path / "c.png"))[::-1]  # back to row 0 = south
+    assert tuple(rgba[45, 45, :3]) == tuple(render.CHANGE_BRIGHTER)
+    assert tuple(rgba[15, 15, :3]) == tuple(render.CHANGE_SAME)
+    assert tuple(rgba[30, 5, :3]) == (0, 0, 0)

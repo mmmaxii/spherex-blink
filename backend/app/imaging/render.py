@@ -88,6 +88,30 @@ def save_difference(data: np.ndarray, path: Path, n_sigma: float = 6.0) -> float
     return limit
 
 
+# Colours of the "what changed" picture: black sky, dim grey for stars that stayed the same, orange
+# for brighter, blue for fainter (a diverging pair that colour-blind readers can still tell apart).
+CHANGE_SKY = np.array([0, 0, 0])
+CHANGE_SAME = np.array([70, 70, 70])
+CHANGE_BRIGHTER = np.array([255, 160, 40])
+CHANGE_FAINTER = np.array([70, 150, 255])
+CHANGE_FULL = 0.5  # a 50 % change (or more) gets the full colour
+
+
+def save_change(relative: np.ndarray, has_data: np.ndarray, threshold: float, path: Path) -> None:
+    """RGBA PNG of stacking.relative_change: only changes above `threshold` are coloured.
+    Pixels without data are transparent."""
+    rgb = np.zeros((*relative.shape, 3), dtype=np.float32) + CHANGE_SKY
+    on_star = np.isfinite(relative)
+    rgb[on_star] = CHANGE_SAME
+    strength = np.clip(np.nan_to_num(np.abs(relative)) / CHANGE_FULL, 0.0, 1.0)[..., None]
+    for sign, colour in ((1, CHANGE_BRIGHTER), (-1, CHANGE_FAINTER)):
+        changed = on_star & (sign * np.nan_to_num(relative) > threshold)
+        rgb[changed] = (CHANGE_SAME + strength * (colour - CHANGE_SAME))[changed]
+    alpha = np.where(has_data, 255, 0)[..., None]
+    out = np.concatenate([rgb, alpha], axis=-1).round().astype(np.uint8)
+    Image.fromarray(out[::-1], "RGBA").save(path, optimize=True)
+
+
 def save_values(data: np.ndarray, path: Path) -> None:
     """The aligned values themselves (MJy/sr, background removed), north up, as little-endian
     float16: the page adds or subtracts any set of frames chosen by the person. NaN = no data or a

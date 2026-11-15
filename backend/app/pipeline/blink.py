@@ -34,7 +34,7 @@ from ..imaging.grid import Grid, make_grid, to_fraction
 from .common import for_each_image, mjd_to_iso, read_cutout_with_retries, start_job, weekly_tag
 
 KIND = "blink"
-PIPELINE_VERSION = "5"  # raise it when the output changes, so stored products are not reused
+PIPELINE_VERSION = "6"  # raise it when the output changes, so stored products are not reused
 
 NOTES = [
     "Each image had its median level subtracted (zodiacal light) so frames can be compared.",
@@ -51,6 +51,9 @@ NOTES = [
     "Differences are a pass stack minus the reference pass stack (mid-gray = no change). The "
     "reference is the first pass with at least 3 images: a single image carries all its oddities "
     "(background, cosmic rays) into every difference.",
+    "'What changed' divides that difference by each star's own brightness (after a light blur), so "
+    "constant stars fade out; only changes above 3 times the scatter of the stars (at least 10 %) "
+    "are coloured. Saturated stars can show false changes at their core.",
 ]
 
 
@@ -265,12 +268,18 @@ def run(params: BlinkParams, progress: Progress) -> dict[str, Any]:
         limit = render.save_difference(
             stacking.difference(stack_data[pass_index], stack_data[reference]), folder / name
         )
+        # The same comparison relative to each star's brightness: constant stars fade out.
+        change = stacking.relative_change(stack_data[pass_index], stack_data[reference])
+        change_name = f"change_pass_{pass_index:02d}.png"
+        render.save_change(change.relative, change.has_data, change.threshold, folder / change_name)
         differences.append(
             {
                 "pass_index": pass_index,
                 "reference_pass_index": reference,
                 "url": store.url(KIND, key, name),
                 "limit_mjysr": round(limit, 5),
+                "change_url": store.url(KIND, key, change_name),
+                "change_threshold": round(change.threshold, 4),
             }
         )
 
