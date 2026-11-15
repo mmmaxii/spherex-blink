@@ -5,7 +5,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from app.data import catalogs, l2, sia
+from app.data import calibration, catalogs, l2, sia
 from app.main import app
 from tests.conftest import make_cutout, make_ref
 
@@ -37,7 +37,7 @@ def test_health_reports_releases_and_what_is_ready():
     body = client.get("/api/health").json()
     assert body["status"] == "ok"
     assert body["collections"] == ["spherex_dr1", "spherex_qr3"]
-    assert body["spectrum_ready"] is False and body["classifier_ready"] is False
+    assert body["spectrum_ready"] is True and body["classifier_ready"] is False
     assert set(body["jobs"]) == {"queued", "running", "done", "failed"}
 
 
@@ -114,11 +114,23 @@ def test_a_failed_job_carries_the_error(monkeypatch):
     assert job["error"]["code"] == "no_coverage" and job["error"]["detail"]["detectors_with_images"] == [4]
 
 
-def test_spectrum_answers_501_until_the_photometry_exists():
-    for mode in ("pass", "cube"):
-        response = client.get("/api/spectrum", params={**WHERE, "mode": mode})
-        assert response.status_code == 501
-        assert response.json()["error"]["code"] == "not_implemented"
+def test_cube_spectrum_is_not_built_yet():
+    response = client.get("/api/spectrum", params={**WHERE, "mode": "cube"})
+    assert response.status_code == 501
+    assert response.json()["error"]["code"] == "not_implemented"
+
+
+def test_spectrum_job_returns_one_point_per_image(monkeypatch):
+    _archive(monkeypatch)
+    fake = calibration.PixelCalibration(lambda_um=2.5, bandwidth_um=0.07, solid_angle_arcsec2=37.8)
+    monkeypatch.setattr(calibration, "at", lambda det, x, y: fake)
+    job = _poll(client.get("/api/spectrum", params={**WHERE, "mode": "pass"}).json())
+    assert job["status"] == "done", job.get("error")
+    result = job["result"]
+    assert len(result["points"]) == 6 and [p["n_points"] for p in result["passes"]] == [3, 3]
+    point = result["points"][0]
+    assert point["lambda_source"] == "spectral_wcs" and point["flux_mjy"] > 0
+    assert point["flux_err_mjy"] >= 0.03 * point["flux_mjy"] and point["suspect"] is False
 
 
 def test_overlay_places_catalogue_sources_on_the_frame(monkeypatch):
