@@ -38,7 +38,8 @@ What happens when someone analyses a position:
 3. `GET /api/frames`: starts a background job and answers at once; the page polls `GET /api/jobs/{id}`.
    The job reads a small piece of each image straight from S3 (HTTP Range, ~3 MB instead of 65 MB), removes
    the sky level, puts every piece on one north-up grid, and writes PNG frames with a common brightness
-   scale, one stack per survey pass, differences against a reference pass and a GIF.
+   scale, one stack per survey pass, differences against a reference pass (in MJy/sr and relative
+   to each star's brightness) and a GIF.
 4. `GET /api/overlay`: Gaia DR3 (ESA) or AllWISE (IRSA) sources already placed on the frame.
 5. `GET /api/spectrum`: same job mechanism. Measures the target on every image (one wavelength per image),
    with the wavelength and pixel solid angle of that exact pixel from the calibration maps, and returns the
@@ -75,6 +76,7 @@ pipeline/     blink.py, spectrum.py, variability.py: the ordered steps of each l
 | Easy to update with new data releases | `sia_collections` in `config.py` or `SPHEREX_SIA_COLLECTIONS`; results are recomputed weekly |
 | Use the 102 bands; add images per detector | detector picker (6 wavelength ranges); "Survey passes (stacked)" view |
 | Spectra on the fly | "Measure the spectrum" → `/api/spectrum`: one point per image, 0.75–5 µm, one colour per pass |
+| See what changed or moved | "What changed" view: each pass against the reference, relative to each star's brightness; constant stars stay grey, brighter = orange, fainter = blue, a moving star shows both side by side |
 | Add or subtract images of different dates | stacks per survey pass; "Difference" view (pass − reference pass); "Add / subtract" tab: any frames in group A minus any in group B, computed in the browser from the aligned values |
 | See how the sky changes over time | "Brightness changes" → `/api/variability`: light curve against constant stars, verdict and period |
 | Choose the field of view | 3–20 arcmin |
@@ -96,7 +98,15 @@ Not validated yet, and labelled as such in the code (`VERIFY`):
   background left a bright band; the median fixes both (checked on RW Aur and eps Ind B, 15 Nov).
   Differences use as reference the first pass with at least 3 images. The S/N gain is not measured;
 - differences show residuals at the position of every star (undersampled PSF, different wavelengths per
-  image), so only clear dipoles mean motion;
+  image), so only clear dipoles mean motion. Alignment is not the cause: pass stacks agree to 0.1 px
+  (0.3″) on RW Aur;
+- "What changed" (checked 2026-11-15 on RW Aur and Barnard's Star, D1/D2, 12′): both stacks are blurred
+  (Gaussian σ = 1.5 grid px = 4.6″, below the 9″ PSF), the difference is divided by their mean on
+  pixels brighter than 8 sky σ, and only changes above max(3 × scatter of all star pixels, 10 %) are
+  coloured (threshold ~27 % in those fields). RW Aur is the only star coloured (brighter in passes 2
+  and 3, as its light curve says: ×0.68 in Sep 2025, ×1.48 in Sep 2026 in D1); Barnard's Star shows
+  blue to the south and orange to the north, its known motion. Saturated stars can show false changes
+  at their core; a change below the threshold is invisible here (use "Brightness changes");
 - images of one detector see the position at different wavelengths: brightness changes between frames are
   not variability by themselves. Every frame is labelled with its wavelength;
 - WISE 0855 is at the detection limit even in the stacked passes of detector 6;

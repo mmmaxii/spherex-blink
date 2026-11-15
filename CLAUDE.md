@@ -125,6 +125,12 @@ Code style: small functions with clear names and comments that say why; no dense
   >= 3 images (eps Ind B D1 has a 1-image pass). Frames in the video still hide every flagged pixel.
 - Add/subtract: blink frames also write aligned values as little-endian float16 (`data_url`, NaN =
   defect or no data); the browser takes the median of groups A and B ignoring NaN.
+- "What changed" (`stack.relative_change` + `render.save_change`, `DifferenceInfo.change_url`): the
+  plain difference leaves a white–black pair on every star (undersampled PSF changes shape between
+  passes; alignment is fine, 0.1 px). Blur both stacks (σ 1.5 grid px), divide by their mean on star
+  pixels (> 8 sky σ), colour only changes > max(3 × star scatter, 10 %). RW Aur alone is coloured;
+  Barnard shows blue south / orange north (its motion). Barnard's light curve says "no change above
+  15 %": correct, it is not a variable star (RW Aur and R Dra are).
 - Deploy: Vercel (`spherex-blink-umber.vercel.app`) rewrites `/api/*` to Render in `frontend/vercel.json`,
   so the frontend needs no environment variable. `SPHEREX_ALLOWED_ORIGINS` on Render covers direct calls.
   Render free plan: sleeps after 15 idle min, 512 MB, ~0.3 images/s for light curves (~20 min for RW Aur);
