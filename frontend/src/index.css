@@ -791,6 +791,86 @@ dialog.info li {
   margin: 3px 0;
 }
 
+/* Brightness changes panel. */
+.variability {
+  margin-top: 24px;
+}
+
+.variability svg {
+  width: 100%;
+  height: auto;
+}
+
+.verdict {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.verdict.variable {
+  border-left: 4px solid var(--series-2);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  font-size: 0.9rem;
+}
+
+.stats dt {
+  color: var(--muted);
+}
+
+.stats dd {
+  margin: 0;
+}
+
+/* "Add / subtract" view. */
+.combine-stage {
+  display: grid;
+  place-items: center;
+}
+
+.combine-stage canvas {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.combine-passes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.combine-passes button,
+.segmented button {
+  min-height: 28px;
+  padding: 2px 8px;
+}
+
+.segmented {
+  display: inline-flex;
+}
+
+.segmented button {
+  border-radius: 0;
+  min-width: 30px;
+}
+
+.segmented button[aria-checked="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.combine-table td {
+  padding: 2px 6px;
+}
+
 /* (i) notes: closed by default, one click away. */
 .info-note {
   margin: 10px 0;
