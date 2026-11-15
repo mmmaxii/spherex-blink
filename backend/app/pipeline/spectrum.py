@@ -42,6 +42,19 @@ NOTES = [
 ]
 
 
+def why_no_spectrum(n_points: int, n_images: int, skipped: list[dict[str, Any]]) -> str:
+    """Sentence for the person when too few images gave a flux. A saturated star is the common case:
+    its core is flagged in every image, so the aperture cannot be trusted anywhere."""
+    on_flagged = sum("light falls on flagged pixels" in s["reason"] for s in skipped)
+    if on_flagged >= max(1, len(skipped) // 2):
+        return (
+            f"The target is too bright for SPHEREx: its core is saturated or flagged in {on_flagged} of "
+            f"{n_images} images, so its flux cannot be measured with an aperture. Its brightness changes "
+            "can still be followed with the wings of the star's image (not in this tool yet)."
+        )
+    return f"Only {n_points} of {n_images} images gave a measurement."
+
+
 def _same_pass_neighbours(point: dict[str, Any], points: list[dict[str, Any]]) -> list[float]:
     """Fluxes of the other points of the same survey pass within one bandwidth of this wavelength."""
     fluxes = []
@@ -142,9 +155,7 @@ def run(params: SpectrumParams, progress: Progress) -> dict[str, Any]:
         refs, lambda ref: _measure(ref, params), progress, (0.05, 0.92), "Measuring images"
     )
     if len(points) < 3:
-        raise NotEnoughFrames(
-            f"Only {len(points)} of {len(refs)} images gave a measurement.", detail={"skipped": skipped}
-        )
+        raise NotEnoughFrames(why_no_spectrum(len(points), len(refs), skipped), detail={"skipped": skipped})
     points.sort(key=lambda p: p["lambda_um"])
     mark_suspects(points, s.suspect_factor)
 

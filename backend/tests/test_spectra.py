@@ -113,3 +113,15 @@ def test_a_star_that_changes_between_passes_is_not_marked():
     pass1 = [_point(2.50 + 0.01 * i, 25.0, pass_index=1) for i in range(4)]  # 2.5x brighter: real change
     mark_suspects(pass0 + pass1, factor=2.0)
     assert not any(p.get("suspect", False) for p in pass0 + pass1)
+
+
+def test_a_saturated_target_gets_a_clear_sentence():
+    from app.pipeline.spectrum import why_no_spectrum
+
+    skipped = [{"reason": "95 % of the star's light falls on flagged pixels (BLOOM, SUR_ERROR)"}] * 9
+    skipped.append({"reason": "position outside the detector"})
+    text = why_no_spectrum(0, 10, skipped)
+    assert "saturated" in text and "9 of 10" in text
+    assert why_no_spectrum(1, 10, [{"reason": "position outside the detector"}] * 9).startswith(
+        "Only 1 of 10"
+    )
