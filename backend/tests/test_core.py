@@ -6,6 +6,7 @@ import time
 import httpx
 import pytest
 
+from app.config import get_settings
 from app.core import cache, http
 from app.core.jobs import JobManager
 from app.core.products import ProductStore
@@ -174,3 +175,15 @@ def test_old_products_are_removed_first(tmp_path):
         store.save_manifest("blink", key, {})
     assert store.load_manifest("blink", "aaaaaaaa01") is None
     assert store.load_manifest("blink", "aaaaaaaa03") == {}
+
+
+def test_the_wait_between_attempts_is_capped(monkeypatch):
+    waits = []
+    monkeypatch.setattr(http.time, "sleep", waits.append)
+    monkeypatch.setattr(get_settings(), "http_backoff_s", 1.5)
+    monkeypatch.setattr(get_settings(), "http_backoff_max_s", 4.0)
+    _client_answering(monkeypatch, [502])
+    with pytest.raises(UpstreamError) as e:
+        http.fetch_text("irsa-sia", "https://example.org/x", tries=6)
+    assert len(waits) == 5 and max(waits) <= 4.0 * 1.25  # 1.5, 3, then capped at 4 (+ jitter)
+    assert "NASA/IPAC archive" in str(e.value) and "their side" in str(e.value)
