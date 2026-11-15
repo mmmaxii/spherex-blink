@@ -43,6 +43,7 @@ DETECT_SIGMA = 10.0  # comparison stars: detections above this many sigma
 MIN_COMPARISON_SNR = 20.0  # comparison stars used as the "constant" reference
 WING_SYSTEMATIC = 0.15  # changes below this are not reported when the target is measured by its wings
 APERTURE_FLOOR = 0.05  # smallest change recovered in the injection test (5 %)
+SATURATED_SHARE = 0.3  # the target counts as saturated when its aperture fails on this share of images
 
 
 # --- 1. Measuring one star on one image ----------------------------------------------------------
@@ -205,9 +206,16 @@ def same_wavelength_residuals(points: list[StarPoint], value: str) -> list[float
 
 def target_light_curve(points: list[StarPoint]) -> list[dict]:
     """Residuals of the target: from the aperture where it is usable, from the wings elsewhere.
-    Each set is normalised against itself, so the different units cancel."""
+    Each set is normalised against itself, so the different units cancel.
+
+    Wings are used only for a saturated star (aperture lost on at least 30 % of the images). On a
+    faint star an occasional failed aperture is a cosmic ray, and its wings are just sky noise."""
     by_aperture = same_wavelength_residuals(points, "flux_mjy")
-    by_wings = same_wavelength_residuals(points, "wing")
+    aperture_failed = sum(p.flux_mjy is None for p in points) / len(points) if points else 0.0
+    if aperture_failed >= SATURATED_SHARE:
+        by_wings = same_wavelength_residuals(points, "wing")
+    else:
+        by_wings = [None] * len(points)
     curve = []
     for p, a, w in zip(points, by_aperture, by_wings, strict=True):
         if a is not None:

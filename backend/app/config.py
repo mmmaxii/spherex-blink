@@ -99,7 +99,7 @@ class Settings(BaseSettings):
 
     # Variability (validation notebook maxi/04): target + comparison stars on every image.
     variability_max_images: int = 240  # images read for one light curve (wide + deep surveys)
-    variability_cutout_half_px: int = 80  # cutout of 161 x 161 px: comparison stars within ~8′
+    variability_cutout_half_px: int = 150  # 301 x 301 px: comparison stars within ~14′ (notebook: 21 stars)
 
     # --- Web -----------------------------------------------------------------------------------
     allowed_origins: list[str] = ["http://localhost:5173", "https://spherex-blink.vercel.app"]
