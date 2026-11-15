@@ -6,9 +6,16 @@
  * turns them into decimal degrees.
  */
 
-/** frames = every exposure; passes = one stack per survey pass; difference = pass minus first pass;
+/** frames = every exposure; passes = one stack per survey pass; difference = pass minus the
+ * reference pass; change = the same, relative to each star's brightness (constant stars fade out);
  * combine = any images the person chooses, added or subtracted in the browser. */
-export const VIEWS = ["frames", "passes", "difference", "combine"] as const;
+export const VIEWS = [
+  "frames",
+  "passes",
+  "difference",
+  "change",
+  "combine",
+] as const;
 export type View = (typeof VIEWS)[number];
 
 export const FOV_ARCMIN_OPTIONS = [3, 6, 12, 20] as const;

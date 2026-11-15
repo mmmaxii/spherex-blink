@@ -313,7 +313,7 @@ export interface components {
         };
         /**
          * DifferenceInfo
-         * @description A pass stack minus the first pass stack.
+         * @description A pass stack minus the reference pass stack (the first pass with 3 or more images).
          */
         DifferenceInfo: {
             /** Pass Index */
@@ -327,6 +327,16 @@ export interface components {
              * @description Black = −limit, white = +limit.
              */
             limit_mjysr: number;
+            /**
+             * Change Url
+             * @description The same difference relative to each star's brightness: orange = brighter, blue = fainter, grey = stars that stayed the same, black = sky.
+             */
+            change_url: string;
+            /**
+             * Change Threshold
+             * @description Smallest relative change coloured (0.1 = 10 %).
+             */
+            change_threshold: number;
         };
         /**
          * ErrorBody
@@ -382,7 +392,7 @@ export interface components {
             flags_url: string;
             /**
              * Data Url
-             * @description Aligned values (MJy/sr, background removed), north up, little-endian float16, grid.width_px x grid.height_px; NaN = no data or flagged. Used to add or subtract frames.
+             * @description Aligned values (MJy/sr, background removed), north up, little-endian float16, grid.width_px x grid.height_px; NaN = no data or a detector defect. Used to add or subtract frames.
              */
             data_url: string;
             /** Obs Id */
@@ -399,7 +409,7 @@ export interface components {
             date_utc: string;
             /**
              * Lambda Um
-             * @description Wavelength at the field centre in this image (approximate: WCS-WAVE table).
+             * @description Wavelength at the field centre in this image (per-pixel spectral calibration map).
              */
             lambda_um: number;
             /** Bandwidth Um */

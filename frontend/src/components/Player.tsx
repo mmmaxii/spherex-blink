@@ -33,12 +33,15 @@ interface Props {
   overlays: Overlay[];
   onView: (view: View) => void;
   onLayers: (layers: Layer[]) => void;
+  /** Analysis page: layers and the reading guide live in the side rail, not under the picture. */
+  compact?: boolean;
 }
 
 const VIEW_LABELS: Record<View, string> = {
   frames: "Every image",
   passes: "Survey passes (stacked)",
   difference: "Difference",
+  change: "What changed",
   combine: "Add / subtract",
 };
 
@@ -88,6 +91,17 @@ function buildItems(result: BlinkResult, view: View, raw: boolean): Item[] {
       y: s.target_y_frac,
       frame: null,
     }));
+  if (view === "change")
+    return result.differences.map((d) => ({
+      key: `c${d.pass_index}`,
+      url: d.change_url,
+      flagsUrl: null,
+      title: `What changed: pass ${d.pass_index + 1} against pass ${d.reference_pass_index + 1}`,
+      subtitle: `orange = brighter in pass ${d.pass_index + 1}, blue = fainter, by more than ${Math.round(100 * d.change_threshold)} % · grey = stars that stayed the same`,
+      x: null,
+      y: null,
+      frame: null,
+    }));
   return result.differences.map((d) => ({
     key: `d${d.pass_index}`,
     url: d.url,
@@ -107,6 +121,7 @@ export function Player({
   overlays,
   onView,
   onLayers,
+  compact = false,
 }: Props) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -141,12 +156,6 @@ export function Player({
         (Math.min(i, items.length - 1) + delta + items.length) % items.length,
     );
   };
-  const toggleLayer = (layer: Layer) =>
-    onLayers(
-      layers.includes(layer)
-        ? layers.filter((l) => l !== layer)
-        : [...layers, layer],
-    );
   const changeView = (next: View) => {
     setIndex(0);
     onView(next);
@@ -285,25 +294,12 @@ export function Player({
         </p>
       )}
 
-      <div className="layers">
-        {(Object.keys(LAYER_LABELS) as Layer[]).map((layer) => (
-          <label key={layer} className={layer}>
-            <input
-              type="checkbox"
-              checked={layers.includes(layer)}
-              onChange={() => toggleLayer(layer)}
-            />
-            {LAYER_LABELS[layer]}
-          </label>
-        ))}
-      </div>
-      {shownOverlays.map((o) => (
-        <p key={o.catalog} className="muted small">
-          {o.label}: {o.sources.length} sources. {o.epoch_note}
-        </p>
-      ))}
-
-      <PlayerInfo />
+      {!compact && (
+        <>
+          <LayerToggles layers={layers} overlays={overlays} onLayers={onLayers} />
+          <PlayerInfo />
+        </>
+      )}
       {current?.frame && <FrameDetails frame={current.frame} />}
 
       <details className="notes">
@@ -339,6 +335,47 @@ export function Player({
         </p>
       </details>
     </section>
+  );
+}
+
+/** Tick boxes for what is drawn over the pictures, and how many catalogue sources each layer has. */
+export function LayerToggles({
+  layers,
+  overlays,
+  onLayers,
+}: {
+  layers: Layer[];
+  overlays: Overlay[];
+  onLayers: (layers: Layer[]) => void;
+}) {
+  const toggle = (layer: Layer) =>
+    onLayers(
+      layers.includes(layer)
+        ? layers.filter((l) => l !== layer)
+        : [...layers, layer],
+    );
+  return (
+    <>
+      <div className="layers">
+        {(Object.keys(LAYER_LABELS) as Layer[]).map((layer) => (
+          <label key={layer} className={layer}>
+            <input
+              type="checkbox"
+              checked={layers.includes(layer)}
+              onChange={() => toggle(layer)}
+            />
+            {LAYER_LABELS[layer]}
+          </label>
+        ))}
+      </div>
+      {overlays
+        .filter((o) => layers.includes(o.catalog))
+        .map((o) => (
+          <p key={o.catalog} className="muted small">
+            {o.label}: {o.sources.length} sources. {o.epoch_note}
+          </p>
+        ))}
+    </>
   );
 }
 

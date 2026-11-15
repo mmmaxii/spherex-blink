@@ -134,6 +134,19 @@ export function PlayerInfo() {
           Bright stars leave residuals because the two passes see them at
           different wavelengths.
         </dd>
+        <dt>What changed</dt>
+        <dd>
+          The same comparison, divided by each star&apos;s own brightness. In a
+          plain difference every star leaves a white–black pair, even constant
+          ones: SPHEREx draws a star on very few pixels and its shape changes
+          between passes. Here constant stars stay grey and only real changes
+          are coloured: <strong>orange</strong> = brighter,{" "}
+          <strong>blue</strong> = fainter. A star that moved shows both, side by
+          side (blue where it was, orange where it is now; Barnard&apos;s Star
+          does this). Changes smaller than three times what constant stars show
+          (at least 10 %) are not coloured. Saturated stars can show false
+          changes at their core.
+        </dd>
         <dt>Target marker</dt>
         <dd>
           Where the target is expected on that date (proper motion included).
