@@ -696,6 +696,92 @@ footer {
   margin-bottom: 8px;
 }
 
+/* Panel title with the (i) button, field slider and the typed-position form. */
+.panel-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.glass .info-button {
+  min-height: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, serif;
+}
+
+.field-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 12px;
+}
+
+.field-size input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.manual {
+  margin-top: 18px;
+}
+
+.manual p {
+  margin: 0 0 4px;
+}
+
+.manual-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 72px;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.manual-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8rem;
+  color: var(--glass-muted);
+}
+
+.manual-grid input {
+  min-width: 0;
+  width: 100%;
+}
+
+/* "How it works" dialog. */
+dialog.info {
+  max-width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 20px 24px;
+  border-radius: 14px;
+}
+
+dialog.info::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+dialog.info h3 {
+  margin: 16px 0 4px;
+  font-size: 0.95rem;
+}
+
+dialog.info ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+dialog.info li {
+  margin: 3px 0;
+}
+
 /* Phones and narrow windows: the panel becomes a sheet at the bottom, missions scroll sideways. */
 @media (max-width: 760px) {
   .selection {

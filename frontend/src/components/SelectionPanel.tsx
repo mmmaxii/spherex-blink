@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from "react";
 import type { BlinkResult, Coverage, Target } from "../api/client";
 import { formatDec, formatFov, formatRa } from "../sky/format";
+import {
+  ManualPosition,
+  MAX_FIELD_ARCMIN,
+  MIN_FIELD_ARCMIN,
+} from "./ManualPosition";
 import { PreviewLoop } from "./PreviewLoop";
 import type { SkySelection } from "./SkyMap";
 
@@ -37,6 +42,9 @@ interface Props {
   onAnalyse: () => void;
   onUnpick: () => void;
   onFind: (name: string) => void; // move the map to a named object and pick it
+  onManual: (ra: string, dec: string, fovArcmin: number) => void; // typed position: preview it
+  onFieldChange: (fovArcmin: number) => void; // resize the fixed field
+  onInfo: () => void; // open "How it works"
   onOpenFull: (search: string) => void;
 }
 
@@ -77,7 +85,17 @@ export function SelectionPanel(props: Props) {
 
   return (
     <aside className="glass selection" aria-label="Field to analyse">
-      <h2>Select a part of the sky</h2>
+      <div className="panel-title">
+        <h2>Select a part of the sky</h2>
+        <button
+          className="info-button"
+          onClick={props.onInfo}
+          aria-label="How it works"
+          title="How it works"
+        >
+          i
+        </button>
+      </div>
       <p className="muted small">
         {picked
           ? "Field fixed. Click elsewhere on the map to change it."
@@ -105,6 +123,21 @@ export function SelectionPanel(props: Props) {
           }
         />
       </dl>
+
+      {picked && (
+        <label className="field-size small">
+          Field size
+          <input
+            type="range"
+            min={MIN_FIELD_ARCMIN}
+            max={MAX_FIELD_ARCMIN}
+            step={1}
+            value={picked.fovArcmin}
+            onChange={(e) => props.onFieldChange(Number(e.target.value))}
+          />
+          <output>{picked.fovArcmin}′</output>
+        </label>
+      )}
 
       <div className="actions">
         <button
@@ -150,6 +183,11 @@ export function SelectionPanel(props: Props) {
           </button>
         </section>
       )}
+      <ManualPosition
+        busy={quickLook.status === "running"}
+        onPreview={props.onManual}
+      />
+
       <form className="find" onSubmit={find}>
         <label htmlFor="find-name" className="small muted">
           Or go to an object by name

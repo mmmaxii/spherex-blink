@@ -1,5 +1,10 @@
 import { useRef, useState } from "react";
 import { ApiError, getBlink, getCoverage, resolveTarget } from "../api/client";
+import { InfoDialog } from "../components/InfoDialog";
+import {
+  MAX_FIELD_ARCMIN,
+  MIN_FIELD_ARCMIN,
+} from "../components/ManualPosition";
 import { RecentMenu } from "../components/RecentMenu";
 import { SelectionPanel, type QuickLook } from "../components/SelectionPanel";
 import { SkyMap, type FlyTo, type SkySelection } from "../components/SkyMap";
@@ -16,8 +21,6 @@ import { surveyById, type Survey } from "../sky/surveys";
 // First view: the Orion Nebula, bright at every wavelength the map offers.
 const START = { raDeg: 83.82, decDeg: -5.39, fovDeg: 2.0 };
 const SURVEY_KEY = "spherex-blink:survey"; // last survey chosen, a convenience per browser
-const MIN_FIELD_ARCMIN = 3; // limits of the analysis (backend max_fov_arcmin = 20)
-const MAX_FIELD_ARCMIN = 20;
 const NAME_FIELD_ARCMIN = 6; // field picked when the person goes to an object by name
 
 /** Field to analyse for a map that shows `fovDeg`: the same size, within what the analysis allows. */
@@ -64,6 +67,7 @@ export function ExplorePage({ onOpen }: { onOpen: (search: string) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [flyTo, setFlyTo] = useState<FlyTo | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
   const running = useRef<AbortController | null>(null);
 
   const live: SkySelection | null =
@@ -108,6 +112,29 @@ export function ExplorePage({ onOpen }: { onOpen: (search: string) => void }) {
     } catch (e) {
       setQuickLook({ status: "error", message: sentence(e) });
     }
+  };
+
+  /** A position typed by hand: the backend reads the format, the map shows the field. */
+  const previewTyped = async (ra: string, dec: string, fovArcmin: number) => {
+    const field = Math.min(
+      MAX_FIELD_ARCMIN,
+      Math.max(MIN_FIELD_ARCMIN, Math.round(fovArcmin)),
+    );
+    try {
+      const target = await resolveTarget({ name: null, ra, dec });
+      pick(target.ra_deg, target.dec_deg, null, field);
+      fly(target.ra_deg, target.dec_deg, (field * 4) / 60);
+    } catch (e) {
+      setQuickLook({ status: "error", message: sentence(e) });
+    }
+  };
+
+  /** New size for the fixed field (the square on the map follows). */
+  const resizeField = (fovArcmin: number) => {
+    if (!picked) return;
+    running.current?.abort(); // the preview was for the old size
+    setPicked({ ...picked, fovArcmin });
+    setQuickLook({ status: "idle" });
   };
 
   /** The quick look: position → what SPHEREx has there → a blink of the detector with most images. */
@@ -221,9 +248,13 @@ export function ExplorePage({ onOpen }: { onOpen: (search: string) => void }) {
           setQuickLook({ status: "idle" });
         }}
         onFind={(name) => void find(name)}
+        onManual={(ra, dec, fov) => void previewTyped(ra, dec, fov)}
+        onFieldChange={resizeField}
+        onInfo={() => setInfoOpen(true)}
         onOpenFull={onOpen}
       />
       <StatusBar cursor={cursor} view={view} survey={survey} />
+      <InfoDialog open={infoOpen} onClose={() => setInfoOpen(false)} />
     </div>
   );
 }
