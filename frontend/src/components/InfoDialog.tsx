@@ -40,6 +40,18 @@ export function InfoDialog({
         changed between those dates: what moves, what brightens or fades.
       </p>
 
+      <h3>The mission and the data</h3>
+      <p>
+        SPHEREx was launched on 12 March 2025 and, since May 2025, maps the
+        whole sky every six months (four times in 25 months), more often near
+        the ecliptic poles. A filter whose colour changes across each of its six
+        detectors makes every row of an image see a different wavelength;
+        stepping across the sky, each star is seen in all 102 colours. The
+        images used here are the public Level 2 spectral images of DR1 (first
+        year) and QR3 (second year) from NASA/IPAC IRSA, calibrated in MJy/sr
+        with a quality flag on every pixel.
+      </p>
+
       <h3>1. Choose a field</h3>
       <ul>
         <li>
