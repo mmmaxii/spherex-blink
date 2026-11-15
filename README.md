@@ -4,8 +4,8 @@ Web tool to watch the SPHEREx infrared sky change over time: enter sky coordinat
 different dates, and spot objects that move or vary. Built for the NASA Space Apps Challenge 2026
 ("Planet X and SPHEREx").
 
-> Work in progress, built during the hackathon. Images, stacks, differences and overlays work with real
-> data; spectra and their classification have the plumbing but not the science yet (see "Status").
+> Work in progress, built during the hackathon. Images, stacks, differences, overlays and spectra work with
+> real data; the classification of spectra is not built yet (see "Status").
 
 ## Architecture
 
@@ -27,7 +27,9 @@ What happens when someone enters a position:
    the sky level, puts every piece on one north-up grid, and writes PNG frames with a common brightness
    scale, one stack per survey pass, pass-minus-first-pass differences and a GIF.
 4. `GET /api/overlay`: Gaia DR3 (ESA) or AllWISE (IRSA) sources already placed on the frame.
-5. `GET /api/spectrum`: same job mechanism; answers 501 until the photometry is validated.
+5. `GET /api/spectrum`: same job mechanism. Measures the target on every image (one wavelength per image),
+   with the wavelength and pixel solid angle of that exact pixel from the calibration maps, and returns the
+   points grouped by survey pass, so passes can be compared at the same wavelength.
 
 Backend layout (`backend/app/`):
 
@@ -37,9 +39,10 @@ errors.py     the errors the API answers with: always {"error": {"code", "messag
 schemas.py    shapes of the answers → /openapi.json → frontend types (npm run gen:api)
 api/          routes: validation only
 core/         HTTP with retries, disk cache, background jobs, product files
-data/         resolve.py, sia.py, l2.py (partial reads from S3), flags.py, catalogs.py
+data/         resolve.py, sia.py, l2.py (partial reads from S3), flags.py, catalogs.py,
+              calibration.py (per-pixel wavelength and solid angle, downloaded once)
 imaging/      grid.py, align.py, background.py, stack.py, render.py
-spectra/      photometry.py and classifier.py (stubs with their contracts)
+spectra/      photometry.py (aperture photometry, validated) and classifier.py (stub)
 pipeline/     blink.py and spectrum.py: the ordered steps of each long request
 ```
 
@@ -51,7 +54,7 @@ pipeline/     blink.py and spectrum.py: the ordered steps of each long request
 | Test targets (Barnard, eps Ind B, WISE 0855, RW Aur, R Dra) | one-click buttons; all five resolve and have images |
 | Easy to update with new data releases | `sia_collections` in `config.py` or `SPHEREX_SIA_COLLECTIONS`; results are recomputed weekly |
 | Use the 102 bands; add images per detector | detector picker (6 wavelength ranges); "Survey passes (stacked)" view |
-| Spectra on the fly | `pipeline/spectrum.py` is wired; `spectra/photometry.py` is not written yet (501) |
+| Spectra on the fly | "Measure the spectrum" → `/api/spectrum`: one point per image, 0.75–5 µm, one colour per pass |
 | Add or subtract images of different dates | stacks per survey pass; "Difference" view (pass − first pass) |
 | Choose the field of view | 3–20 arcmin |
 | Overlay Gaia / WISE | layer checkboxes → `/api/overlay`; Gaia positions moved with their proper motions |
@@ -72,7 +75,20 @@ Not validated yet, and labelled as such in the code (`VERIFY`):
 - images of one detector see the position at different wavelengths: brightness changes between frames are
   not variability by themselves. Every frame is labelled with its wavelength;
 - WISE 0855 is at the detection limit even in the stacked passes of detector 6;
-- spectra and classification: not built.
+- classification of spectra: not built.
+
+Spectra (validated on 2026-11-15 with eps Ind B, all 463 images, from Chile in 11 min):
+- aperture of 2.5 px (97.7–98.8 % of the ePSF) and a 6–10 px sky annulus, sigma-clipped. The SOURCE flag
+  is not excluded from the sky: in DR1 it covers ~45 % of every detector;
+- flagged pixels (official recipe) are left out and the flux is corrected for the light they held; images
+  with more than 20 % of the light lost (saturated or damaged core) are skipped with the reason;
+- wavelength and solid angle per pixel from the spectral WCS and solid-angle maps (WCS-WAVE differs by up
+  to 0.13 % in wavelength, the solid angle by ±1.3 %); 3 % calibration error added in quadrature;
+- result: 412 points, identical to the validation notebook on the 391 clean images (median ratio 1.0000);
+  the four passes agree within 0.03 % on average, with 4 % scatter per point; the T-dwarf bands
+  (H₂O at 1.4 and 1.9 µm, CH₄ from 2.2 to 3.5 µm) are clear;
+- not handled: saturated targets (Barnard, R Dra; RW Aur at some wavelengths) get no point there; their
+  variability can be followed with the PSF wings in relative units (validation notebook 04), not yet here.
 
 ## Run locally
 
