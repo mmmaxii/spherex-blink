@@ -88,8 +88,12 @@ function shape(
   cy: number,
   color: string,
   title: string,
+  hollow = false,
 ) {
-  const common = { fill: color, stroke: "var(--bg)", strokeWidth: 1 };
+  // Hollow = suspect point: drawn in its pass colour but empty, so it is visible yet clearly apart.
+  const common = hollow
+    ? { fill: "var(--bg)", stroke: color, strokeWidth: 1.5 }
+    : { fill: color, stroke: "var(--bg)", strokeWidth: 1 };
   const r = 4;
   const kind = index % 4;
   return (
@@ -136,9 +140,13 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
   const passes = result.passes.map((p) => p.pass_index);
   const color = (pass: number) =>
     SERIES[passes.indexOf(pass)] ?? "var(--muted)";
+  // The scale follows the trusted points: one cosmic ray must not flatten the whole spectrum.
+  const trusted = points.filter((p) => !p.suspect);
+  const scaleOn = trusted.length > 0 ? trusted : points;
   const yMax =
-    Math.max(...points.map((p) => p.flux_mjy + (p.flux_err_mjy || 0))) * 1.08 ||
-    1;
+    Math.max(...scaleOn.map((p) => p.flux_mjy + (p.flux_err_mjy || 0))) *
+      1.08 || 1;
+  const nSuspect = points.length - trusted.length;
   const x = (um: number) =>
     M.left +
     ((um - X_RANGE_UM[0]) / (X_RANGE_UM[1] - X_RANGE_UM[0])) *
@@ -146,7 +154,8 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
   const y = (mjy: number) =>
     H - M.bottom - (Math.max(mjy, 0) / yMax) * (H - M.top - M.bottom);
   const describe = (p: SpectrumPoint) =>
-    `${p.lambda_um.toFixed(3)} µm: ${p.flux_mjy.toFixed(2)} ± ${p.flux_err_mjy.toFixed(2)} mJy · ${p.date_utc.slice(0, 10)} · pass ${p.pass_index + 1}`;
+    `${p.lambda_um.toFixed(3)} µm: ${p.flux_mjy.toFixed(2)} ± ${p.flux_err_mjy.toFixed(2)} mJy · ${p.date_utc.slice(0, 10)} · pass ${p.pass_index + 1}` +
+    (p.suspect ? " · suspect (far from the same pass)" : "");
 
   return (
     <figure>
@@ -164,6 +173,19 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
             Pass {pass + 1}
           </span>
         ))}
+        {nSuspect > 0 && (
+          <span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="-7 -7 14 14"
+              aria-hidden="true"
+            >
+              {shape(0, 0, 0, "var(--muted)", "", true)}
+            </svg>
+            Suspect ({nSuspect})
+          </span>
+        )}
       </div>
       <svg
         viewBox={`0 0 ${W} ${H}`}
@@ -234,6 +256,7 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
               y(p.flux_mjy),
               color(p.pass_index),
               describe(p),
+              p.suspect,
             )}
           </g>
         ))}
@@ -257,6 +280,7 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
               <th>Date</th>
               <th>Pass</th>
               <th>Detector</th>
+              <th>Note</th>
             </tr>
           </thead>
           <tbody>
@@ -268,6 +292,19 @@ function SpectrumChart({ result }: { result: SpectrumResult }) {
                 <td>{p.date_utc.slice(0, 10)}</td>
                 <td>{p.pass_index + 1}</td>
                 <td>{p.detector}</td>
+                <td>
+                  {[
+                    p.suspect ? "suspect" : "",
+                    p.lost_fraction > 0
+                      ? `${(p.lost_fraction * 100).toFixed(0)} % light on flagged pixels (corrected)`
+                      : "",
+                    p.lambda_source === "wcs-wave"
+                      ? "approximate wavelength"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </td>
               </tr>
             ))}
           </tbody>
