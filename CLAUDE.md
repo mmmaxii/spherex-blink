@@ -90,8 +90,11 @@ Code style: small functions with clear names and comments that say why; no dense
 
 - The DR1 `SOURCE` flag covers ~45 % of every detector (Supplement §3.2.9: pixels with flux from catalog
   sources). Never exclude it from a sky estimate: the sky becomes empty. Sky = sigma-clipped annulus.
-- Science wavelength: `dr1/spectral_wcs/...` (CWAVE/CBAND per pixel); solid angle: `dr1/solid_angle_pixel_map/...`
-  (`data/calibration.py`, downloaded once, memory-mapped). WCS-WAVE differs from CWAVE by ≤ 0.13 %.
+- Science wavelength: `dr1/spectral_wcs/...` (CWAVE/CBAND per pixel); solid angle: `dr1/solid_angle_pixel_map/...`.
+  WCS-WAVE differs from CWAVE by ≤ 0.13 %. The API ships a grid of every 8th pixel of those maps
+  (`data/calibration_dr1.npz`, built by `scripts/build_calibration_grid.py`): downloading the 300 MB of maps
+  filled the 512 MB Render instance. Grid vs full maps: λ ≤ 0.04 % (p99), CBAND ≤ 5 % (p99, pixel noise),
+  solid angle 1e-7. No photutils/astroquery/pyvo: apertures are in `spectra/aperture.py` (= photutils to 1e-11).
 - `dr1/l3_flux_corrections/` only converts QR2 to the R7 scale: not used with DR1 + QR3.
 - eps Ind B through `pipeline/spectrum.run`: 412 points; identical to the notebook on 391 clean images; the
   four passes agree on average; 4 % scatter per point. 42 images skipped for >20 % light on flagged pixels.
