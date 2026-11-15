@@ -104,7 +104,9 @@ class Settings(BaseSettings):
     variability_cutout_half_px: int = 150  # 301 x 301 px: comparison stars within ~14′ (notebook: 21 stars)
 
     # --- Web -----------------------------------------------------------------------------------
-    allowed_origins: list[str] = ["http://localhost:5173", "https://spherex-blink.vercel.app"]
+    # The deployed page (spherex-blink.vercel.app belongs to another project). The page itself calls
+    # the API through Vercel's rewrite, so this only matters for direct calls from a browser.
+    allowed_origins: list[str] = ["http://localhost:5173", "https://spherex-blink-umber.vercel.app"]
     cache_dir: str = ".cache"
     sia_cache_ttl_s: float = 6 * 3600.0  # QR3 grows weekly; a few hours is fresh enough
     resolve_cache_ttl_s: float = 7 * 86400.0
