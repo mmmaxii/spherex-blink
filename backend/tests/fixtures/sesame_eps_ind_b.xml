@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Sesame xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:noNamespaceSchemaLocation="https://vizier.cds.unistra.fr/xml/sesame_4x.xsd">
+<Target option="S">
+  <name>eps Ind B</name>
+  <!-- Q194249 #1 -->
+  <Resolver name="S=Simbad, IDIA (via url)"><!--delay: 0ms [0] -->
+    <INFO>from cache</INFO>
+    <oid>3387843</oid>
+    <oname>* eps Ind B</oname>
+    <otype>BD*</otype>
+    <jpos>22:04:10.59 -56:46:58.2</jpos>
+    <jradeg>331.04414658852124</jradeg>
+    <jdedeg>-56.78284419511611</jdedeg>
+    <refPos>2020yCat.1350....0G</refPos>
+    <errRAmas>0.5048</errRAmas><errDEmas>0.4676</errDEmas>
+    <pm>
+      <v>4684.165</v><e>0.868</e><q>A</q><r>2020yCat.1350....0G</r>
+      <pa>121.78</pa>
+      <pmRA>3981.977</pmRA><epmRA>0.602</epmRA>
+      <pmDE>-2466.832</pmDE><epmDE>0.626</epmDE>
+    </pm>
+    <plx><v>270.6580</v><e>0.6896</e><q>A</q><r>2020yCat.1350....0G</r></plx>
+    <spType>T1V+T6V</spType><spNum>0.00038E00.0030.0000000000100000</spNum>
+  </Resolver>
+</Target>
+</Sesame>
+<!--- ====Done (2026-Nov-15,01:08:17z)==== -->
