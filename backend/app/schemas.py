@@ -199,13 +199,19 @@ class SpectrumPoint(BaseModel):
     collection: str
     obs_id: str
     pass_index: int
-    lambda_um: float
+    lambda_um: float = Field(description="Wavelength of the target's pixel (spectral WCS map).")
     bandwidth_um: float
     flux_mjy: float = Field(description="Millijansky.")
-    flux_err_mjy: float
+    flux_err_mjy: float = Field(description="Statistical and 3 % calibration error, in quadrature.")
+    stat_err_mjy: float = Field(description="Statistical part of the error only.")
     background_mjysr: float
-    n_bad_px: int
-    flags: list[str]
+    n_bad_px: int = Field(description="Flagged pixels left out of the aperture.")
+    lost_fraction: float = Field(description="Share of the star's light on those pixels (corrected for).")
+    flags: list[str] = Field(description="Flag names on the central pixel.")
+    lambda_source: Literal["spectral_wcs", "wcs-wave"]
+    suspect: bool = Field(
+        description="Far from the other points of the same pass at the same wavelength (shown, not removed)."
+    )
 
 
 class SpectrumPass(BaseModel):
