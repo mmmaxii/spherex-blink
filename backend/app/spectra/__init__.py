@@ -1,7 +1,7 @@
-"""Spectra and classification.
+"""Spectra and classification. The science here is not built yet; the contracts are.
 
-Planned modules:
-  cube.py        quick-look spectrum from the DR1 all-sky cube (HEALPix order 5 tiles on S3)
-  photometry.py  forced photometry on L2 images, one spectrum per survey pass (+3 % systematic error)
-  classifier.py  chi-square template fit for fixed sources (brown dwarfs, stars)
+  photometry.py  flux of the target on one image (stub: measure())
+  classifier.py  slot for the trained model (loads <model_dir>/classifier.joblib when present)
+
+Planned: cube.py, quick-look spectrum from the DR1 all-sky cube (no time information).
 """
