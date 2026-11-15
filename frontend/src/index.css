@@ -402,13 +402,15 @@ button[aria-selected="true"] {
   height: auto;
 }
 
-.spectrum .grid {
+.spectrum .grid,
+.variability .grid {
   stroke: var(--border);
   stroke-width: 1;
 }
 
 .spectrum .tick,
-.spectrum .axis {
+.spectrum .axis,
+.variability .axis {
   fill: var(--muted);
   font-size: 12px;
 }
