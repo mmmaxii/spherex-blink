@@ -81,7 +81,7 @@ export function SelectionPanel(props: Props) {
       <p className="muted small">
         {picked
           ? "Field fixed. Click elsewhere on the map to change it."
-          : "Move over the map: the numbers follow the cursor. Click to fix them."}
+          : "Move over the map: the numbers follow the cursor. Click (or tap) to fix them."}
       </p>
 
       <dl className="fields">
