@@ -23,6 +23,15 @@ log = logging.getLogger(__name__)
 
 RETRY_STATUS = {429, 500, 502, 503, 504}
 
+# How each service is called in the sentences people read (logs keep the short names).
+SERVICE_NAMES = {
+    "irsa-sia": "The NASA/IPAC archive (IRSA) image search",
+    "irsa-scs": "The IRSA catalogue service",
+    "s3-calibration": "The SPHEREx data store (AWS S3)",
+    "cds-sesame": "The CDS name resolver (Sesame)",
+    "esa-gaia": "The ESA Gaia archive",
+}
+
 _client: httpx.Client | None = None
 _client_lock = threading.Lock()
 _limits: dict[str, threading.BoundedSemaphore] = {}
@@ -87,14 +96,16 @@ def fetch(
         except httpx.TransportError as e:
             last, timed_out = e, False
         if attempt < tries:
-            wait_s = s.http_backoff_s * 2 ** (attempt - 1) * (1 + 0.25 * random.random())
+            wait_s = min(s.http_backoff_s * 2 ** (attempt - 1), s.http_backoff_max_s)
+            wait_s *= 1 + 0.25 * random.random()  # jitter: parallel requests do not retry in step
             log.warning(
                 "%s: attempt %d/%d failed (%s); retrying in %.1f s", service, attempt, tries, last, wait_s
             )
             time.sleep(wait_s)
     error = UpstreamTimeout if timed_out else UpstreamError
     raise error(
-        f"{service} did not answer after {tries} attempts. Try again in a moment.",
+        f"{SERVICE_NAMES.get(service, service)} is not answering right now ({tries} attempts). "
+        "This is on their side; try again in a minute.",
         detail={"service": service, "reason": str(last)[:200]},
     )
 
