@@ -923,6 +923,220 @@ dialog.info li {
   margin: 0 0 4px;
 }
 
+/* --- analysis page (AnalysisPage): top bar, rail of controls, one big stage ------------------
+   The pictures are dark, so the page uses the dark palette in both colour schemes, like the sky
+   page. Redefining the variables here keeps every panel and chart inside consistent. */
+
+.workbench {
+  --bg: #12151b;
+  --panel: #1d2129;
+  --border: #39404c;
+  --text: #eef1f5;
+  --muted: #aeb7c4;
+  --accent: #3987e5;
+  --on-accent: #ffffff;
+  --warn-bg: #3d2f0a;
+  --warn-text: #f5dfa8;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  color-scheme: dark;
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: #0b0e13;
+}
+
+.topbar h1 {
+  font-size: 1.05rem;
+}
+
+.topbar-target {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.topbar-actions button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.workbench-body {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px 20px;
+  border-right: 1px solid var(--border);
+  background: #0f1217;
+}
+
+.rail h2 {
+  margin-bottom: 4px;
+}
+
+.rail h3 {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rail p {
+  margin: 6px 0 0;
+}
+
+.rail .detectors {
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+}
+
+.rail .layers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+  margin: 0;
+}
+
+.rail .notes {
+  margin-top: 0;
+}
+
+.rail .search .fields {
+  grid-template-columns: 1fr;
+}
+
+.fov-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.credits {
+  margin-top: auto !important;
+}
+
+.stage-area {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 20px 28px;
+}
+
+.stage-tabs {
+  margin-bottom: 12px;
+}
+
+.stage-view[hidden] {
+  display: none;
+}
+
+.stage-view.wide {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+/* The picture grows to the room there is: the whole width, or the height left under the bar,
+   tabs and controls, whichever is smaller. */
+.workbench .stage,
+.workbench .controls {
+  max-width: min(100%, calc(100dvh - 270px));
+}
+
+.workbench .stage {
+  min-width: min(100%, 280px);
+}
+
+.workbench .aladin {
+  max-width: min(100%, calc(100dvh - 300px));
+}
+
+.stage-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  text-align: center;
+  padding: 16px;
+}
+
+.workbench .spectrum,
+.workbench .variability {
+  margin-top: 0;
+}
+
+/* Phones and narrow windows: the page scrolls, the stage comes first and the controls under it. */
+@media (max-width: 760px) {
+  .workbench {
+    position: static;
+    display: block;
+    min-height: 100dvh;
+  }
+
+  .workbench-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stage-area {
+    order: 1;
+    overflow: visible;
+    padding: 10px 12px 18px;
+  }
+
+  .rail {
+    order: 2;
+    overflow: visible;
+    border-right: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .workbench .stage,
+  .workbench .controls,
+  .workbench .aladin {
+    max-width: 100%;
+  }
+
+  .stage-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .stage-tabs button {
+    flex-shrink: 0;
+  }
+
+  .topbar-actions {
+    margin-left: 0;
+  }
+}
+
 /* Phones and narrow windows: the panel becomes a sheet at the bottom, missions scroll sideways. */
 @media (max-width: 760px) {
   .selection {

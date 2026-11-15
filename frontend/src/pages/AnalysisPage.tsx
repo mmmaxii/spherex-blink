@@ -14,13 +14,18 @@ import {
   type Target,
 } from "../api/client";
 import { ContextMap } from "../components/ContextMap";
-import { Player } from "../components/Player";
+import { LayerToggles, Player } from "../components/Player";
 import { SearchForm, type Query } from "../components/SearchForm";
 import { SpectrumPanel } from "../components/SpectrumPanel";
 import { VariabilityPanel } from "../components/VariabilityPanel";
-import { AboutMission, DetectorsInfo } from "../content/explanations";
+import {
+  AboutMission,
+  DetectorsInfo,
+  PlayerInfo,
+} from "../content/explanations";
 import { rememberAnalysis } from "../state/recent";
 import {
+  FOV_ARCMIN_OPTIONS,
   hasQuery,
   readState,
   toSearch,
@@ -31,6 +36,15 @@ import {
 // Catalogues that can be drawn over the images (layer names in the URL).
 const CATALOGS: Catalog[] = ["gaia", "wise"];
 
+/** The four ways of looking at the field; they share the big stage of the page. */
+type StageTab = "blink" | "surveys" | "spectrum" | "variability";
+const STAGE_TABS: { id: StageTab; label: string }[] = [
+  { id: "blink", label: "Blink" },
+  { id: "surveys", label: "Other telescopes" },
+  { id: "spectrum", label: "Spectrum" },
+  { id: "variability", label: "Brightness changes" },
+];
+
 /** Text for the person: the backend's own sentence when there is one. */
 const message = (e: unknown) =>
   e instanceof ApiError
@@ -40,6 +54,10 @@ const message = (e: unknown) =>
 /**
  * The full analysis of one field, on its own address (everything is in the query string):
  * position (resolve) → what SPHEREx has there (coverage) → the images (frames job) → spectrum.
+ *
+ * Layout: a top bar, a rail with every control on the left and one big stage on the right, where
+ * the four views (blink, other telescopes, spectrum, brightness changes) take turns. Background
+ * notes open in a dialog. Embedded in another site (`embed=1`) the page keeps one short column.
  */
 export function AnalysisPage({ onHome }: { onHome: () => void }) {
   const [state, setState] = useState<ViewState>(readState);
@@ -54,8 +72,10 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [tab, setTab] = useState<StageTab>("blink");
+  const [notesOpen, setNotesOpen] = useState(false);
   const overlayRequests = useRef(new Set<string>());
-  // A catalogue that could not be loaded: shown next to the player, and its layer is switched off.
+  // A catalogue that could not be loaded: shown next to the layers, and its layer is switched off.
   const [overlayError, setOverlayError] = useState<string | null>(null);
 
   // Every change of option goes through here so the URL always matches the screen.
@@ -202,33 +222,10 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
   };
   const embedUrl = `${window.location.origin}${window.location.pathname}${toSearch({ ...state, embed: true })}`;
 
-  return (
-    <main className={state.embed ? "shell embed" : "shell"}>
-      {!state.embed && (
-        <>
-          <header>
-            <button className="link-button back" onClick={onHome}>
-              ← Back to the sky map
-            </button>
-            <h1>SPHEREx Blink</h1>
-            <p>
-              How this patch of the infrared sky changed between the dates
-              NASA's SPHEREx telescope looked at it.
-            </p>
-          </header>
-          <AboutMission />
-          {/* The field is chosen on the sky map; here it can still be changed by hand. */}
-          <details className="notes">
-            <summary>Change position or field of view</summary>
-            <SearchForm
-              initial={state}
-              busy={progress !== null}
-              onSearch={search}
-            />
-          </details>
-        </>
-      )}
+  // --- pieces used by both layouts ------------------------------------------------------------
 
+  const notices = (
+    <>
       {error && (
         <p className="notice" role="alert">
           {error}
@@ -239,94 +236,57 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
           <progress value={progress.fraction} /> {progress.stage}…
         </p>
       )}
+    </>
+  );
 
-      {target && !state.embed && (
-        <p className="target">
-          <strong>{target.name ?? "Position"}</strong> · RA{" "}
-          {target.ra_deg.toFixed(5)}° Dec {target.dec_deg.toFixed(5)}°
-          {target.pm_ra_masyr !== null && target.pm_dec_masyr !== null && (
-            <span className="muted">
-              {" "}
-              · moves{" "}
-              {(
-                Math.hypot(target.pm_ra_masyr, target.pm_dec_masyr) / 1000
-              ).toFixed(2)}
-              ″ per year (field centred on where it was in January 2026)
-            </span>
-          )}
-        </p>
-      )}
-
-      {coverage && (
-        <div
-          className="detectors"
-          role="group"
-          aria-label="Detector (wavelength range)"
+  const detectorButtons = coverage && (
+    <div
+      className="detectors"
+      role="group"
+      aria-label="Detector (wavelength range)"
+    >
+      {coverage.detectors.map((d) => (
+        <button
+          key={d.detector}
+          aria-pressed={d.detector === detector}
+          onClick={() => update({ detector: d.detector })}
+          title={`${d.n_images} images`}
         >
-          {coverage.detectors.map((d) => (
-            <button
-              key={d.detector}
-              aria-pressed={d.detector === detector}
-              onClick={() => update({ detector: d.detector })}
-              title={`${d.n_images} images`}
-            >
-              D{d.detector}
-              <small>
-                {d.lambda_min_um.toFixed(2)}–{d.lambda_max_um.toFixed(2)} µm ·{" "}
-                {d.n_images}
-              </small>
-            </button>
-          ))}
-        </div>
-      )}
-      {coverage && !state.embed && <DetectorsInfo />}
+          D{d.detector}
+          <small>
+            {d.lambda_min_um.toFixed(2)}–{d.lambda_max_um.toFixed(2)} µm ·{" "}
+            {d.n_images}
+          </small>
+        </button>
+      ))}
+    </div>
+  );
 
-      {result && (
-        <Player
-          key={result.key}
-          result={result}
-          view={state.view}
-          layers={state.layers}
-          overlays={overlays}
-          onView={(view) => update({ view })}
-          onLayers={(layers) => update({ layers })}
-        />
-      )}
+  const overlayNotice = overlayError && (
+    <p className="notice small" role="alert">
+      {overlayError}
+    </p>
+  );
 
-      {overlayError && (
-        <p className="notice small" role="alert">
-          {overlayError}
-        </p>
-      )}
+  // --- embedded in another site (iframe): the short one-column layout, as before --------------
 
-      {result && target && !state.embed && (
-        <>
-          <ContextMap target={target} fovArcmin={state.fovArcmin} />
-          <SpectrumPanel
-            key={`${target.ra_deg},${target.dec_deg}`}
-            target={target}
-            ready={health?.spectrum_ready ?? false}
+  if (state.embed)
+    return (
+      <main className="shell embed">
+        {notices}
+        {detectorButtons}
+        {result && (
+          <Player
+            key={result.key}
+            result={result}
+            view={state.view}
+            layers={state.layers}
+            overlays={overlays}
+            onView={(view) => update({ view })}
+            onLayers={(layers) => update({ layers })}
           />
-          <VariabilityPanel
-            key={`v-${target.ra_deg},${target.dec_deg}`}
-            target={target}
-          />
-          <details className="notes">
-            <summary>Share or embed this view</summary>
-            <p>
-              The address of this page holds everything you see (position,
-              field, detector, layers).{" "}
-              <button onClick={copyLink}>
-                {copied ? "Copied" : "Copy link"}
-              </button>
-            </p>
-            <p>To embed it in another site:</p>
-            <pre>{`<iframe src="${embedUrl}" width="640" height="820" style="border:0"></iframe>`}</pre>
-          </details>
-        </>
-      )}
-
-      {state.embed ? (
+        )}
+        {overlayNotice}
         <p className="muted small">
           <a
             href={`${window.location.pathname}${toSearch({ ...state, embed: false })}`}
@@ -336,29 +296,262 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
             Open in SPHEREx Blink
           </a>
         </p>
-      ) : (
-        <footer className="muted small">
+      </main>
+    );
+
+  // --- full page: top bar, rail of controls, one big stage ------------------------------------
+
+  // The other views need the position; until it is known only the blink view can be chosen.
+  const shownTab: StageTab = target ? tab : "blink";
+  const movesArcsecPerYear =
+    target && target.pm_ra_masyr !== null && target.pm_dec_masyr !== null
+      ? Math.hypot(target.pm_ra_masyr, target.pm_dec_masyr) / 1000
+      : null;
+
+  return (
+    <main className="workbench">
+      <header className="topbar">
+        <button className="link-button" onClick={onHome}>
+          ← Sky map
+        </button>
+        <h1>SPHEREx Blink</h1>
+        {target && (
+          <p className="topbar-target">
+            <strong>{target.name ?? "Position"}</strong>{" "}
+            <span className="muted">
+              RA {target.ra_deg.toFixed(5)}° · Dec {target.dec_deg.toFixed(5)}°
+            </span>
+          </p>
+        )}
+        <div className="topbar-actions">
+          <button onClick={copyLink}>{copied ? "Copied" : "Copy link"}</button>
+          <button onClick={() => setNotesOpen(true)}>
+            <span className="info-mark" aria-hidden="true">
+              i
+            </span>
+            Notes and methods
+          </button>
+        </div>
+      </header>
+
+      <div className="workbench-body">
+        <aside className="rail" aria-label="Controls">
+          <section>
+            <h2>{target?.name ?? "Field"}</h2>
+            {target ? (
+              <dl className="stats">
+                <dt>RA</dt>
+                <dd>{target.ra_deg.toFixed(5)}°</dd>
+                <dt>Dec</dt>
+                <dd>{target.dec_deg.toFixed(5)}°</dd>
+                {movesArcsecPerYear !== null && (
+                  <>
+                    <dt>Moves</dt>
+                    <dd>
+                      {movesArcsecPerYear.toFixed(2)}″ per year{" "}
+                      <span className="muted small">
+                        (field centred on where it was in January 2026)
+                      </span>
+                    </dd>
+                  </>
+                )}
+              </dl>
+            ) : (
+              <p className="muted small">Finding the position…</p>
+            )}
+            {coverage && (
+              <p className="muted small">
+                {coverage.n_images} SPHEREx images in {coverage.passes.length}{" "}
+                survey passes (
+                {coverage.collections
+                  .map((c) => c.replace("spherex_", "").toUpperCase())
+                  .join(" + ")}
+                ).
+              </p>
+            )}
+          </section>
+
+          <section>
+            <h3>Field of view</h3>
+            <div
+              className="fov-buttons"
+              role="group"
+              aria-label="Field of view"
+            >
+              {FOV_ARCMIN_OPTIONS.map((fov) => (
+                <button
+                  key={fov}
+                  aria-pressed={fov === state.fovArcmin}
+                  onClick={() => update({ fovArcmin: fov })}
+                >
+                  {fov}′
+                </button>
+              ))}
+            </div>
+          </section>
+
           {coverage && (
-            <p>
-              {coverage.n_images} SPHEREx images cover this position in{" "}
-              {coverage.passes.length} survey passes (
-              {coverage.collections
-                .map((c) => c.replace("spherex_", "").toUpperCase())
-                .join(" + ")}
-              ).
-            </p>
+            <section>
+              <h3>Detector</h3>
+              {detectorButtons}
+            </section>
           )}
-          <p>
-            Data: SPHEREx spectral images from the NASA/IPAC Infrared Science
-            Archive (
+
+          <section>
+            <h3>Layers</h3>
+            <LayerToggles
+              layers={state.layers}
+              overlays={overlays}
+              onLayers={(layers) => update({ layers })}
+            />
+            {overlayNotice}
+          </section>
+
+          {/* The field is chosen on the sky map; here it can still be changed by hand. */}
+          <details className="notes">
+            <summary>Change position</summary>
+            <SearchForm
+              initial={state}
+              busy={progress !== null}
+              onSearch={search}
+            />
+          </details>
+
+          <p className="muted small credits">
+            Data: SPHEREx images from NASA/IPAC IRSA (
             <a href="https://www.ipac.caltech.edu/doi/10.26131/IRSA678">
               DOI 10.26131/IRSA678
             </a>
             ). Names by SIMBAD/Sesame (CDS), catalogues by ESA Gaia and NASA
             WISE. Built for the NASA Space Apps Challenge 2026.
           </p>
-        </footer>
-      )}
+        </aside>
+
+        <section className="stage-area">
+          {notices}
+          <div className="tabs stage-tabs" role="tablist" aria-label="View">
+            {STAGE_TABS.map((t) => (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={t.id === shownTab}
+                disabled={t.id !== "blink" && !target}
+                onClick={() => setTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Every view stays mounted and is only hidden: a spectrum being measured keeps going
+              while another view is on screen. */}
+          <div className="stage-view" hidden={shownTab !== "blink"}>
+            {result ? (
+              <Player
+                key={result.key}
+                result={result}
+                view={state.view}
+                layers={state.layers}
+                overlays={overlays}
+                onView={(view) => update({ view })}
+                onLayers={(layers) => update({ layers })}
+                compact
+              />
+            ) : (
+              !error && (
+                <div className="stage stage-empty">
+                  <p>
+                    {progress ? `${progress.stage}…` : "Waiting for the images"}
+                  </p>
+                </div>
+              )
+            )}
+          </div>
+          {target && (
+            <>
+              <div className="stage-view wide" hidden={shownTab !== "surveys"}>
+                <ContextMap
+                  target={target}
+                  fovArcmin={state.fovArcmin}
+                  active={shownTab === "surveys"}
+                />
+              </div>
+              <div className="stage-view wide" hidden={shownTab !== "spectrum"}>
+                <SpectrumPanel
+                  key={`${target.ra_deg},${target.dec_deg}`}
+                  target={target}
+                  ready={health?.spectrum_ready ?? false}
+                />
+              </div>
+              <div
+                className="stage-view wide"
+                hidden={shownTab !== "variability"}
+              >
+                <VariabilityPanel
+                  key={`v-${target.ra_deg},${target.dec_deg}`}
+                  target={target}
+                />
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+
+      <NotesDialog
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        embedUrl={embedUrl}
+      />
     </main>
+  );
+}
+
+/** Background and method notes, out of the way of the pictures: opened from the top bar. */
+function NotesDialog({
+  open,
+  onClose,
+  embedUrl,
+}: {
+  open: boolean;
+  onClose: () => void;
+  embedUrl: string;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+
+  // A native <dialog>: Escape closes it and focus stays inside while it is open.
+  useEffect(() => {
+    const element = dialog.current;
+    if (!element) return;
+    if (open && !element.open) element.showModal();
+    if (!open && element.open) element.close();
+  }, [open]);
+
+  return (
+    <dialog
+      ref={dialog}
+      className="glass info"
+      onClose={onClose}
+      aria-labelledby="notes-title"
+    >
+      <form method="dialog" className="panel-title">
+        <h2 id="notes-title">Notes and methods</h2>
+        <button className="info-button" aria-label="Close">
+          ✕
+        </button>
+      </form>
+      <p className="muted">
+        How this patch of the infrared sky changed between the dates NASA's
+        SPHEREx telescope looked at it.
+      </p>
+      <AboutMission />
+      <DetectorsInfo />
+      <PlayerInfo />
+      <h3>Share or embed this view</h3>
+      <p className="small">
+        The address of the page holds everything you see (position, field,
+        detector, layers). To embed it in another site:
+      </p>
+      <pre>{`<iframe src="${embedUrl}" width="640" height="820" style="border:0"></iframe>`}</pre>
+    </dialog>
   );
 }
