@@ -16,7 +16,17 @@ validation/ Jupyter notebooks where each step is tried and checked before it mov
 docs/       Notes and decisions.
 ```
 
-What happens when someone enters a position:
+Two pages, one address:
+
+- `/` **sky map** (Aladin Lite, full screen). The coordinates follow the cursor; a click fixes a field
+  (its size follows the map zoom, 3–20′); "Analyse this field" makes a quick blink preview of the
+  detector with most images, and "Full analysis" opens the second page. Missions from ultraviolet to
+  sub-mm (GALEX, DSS2, 2MASS, the SPHEREx all-sky cube at 2.04 µm, Spitzer, WISE, Herschel, Planck),
+  all served by IRSA. The menu keeps the last five analyses in the browser.
+- `/?ra=…&dec=…` or `/?target=…` **full analysis**: player, detectors, stacks, differences, overlays,
+  spectrum and context map. Every option is in the address, so it can be shared or embedded.
+
+What happens when someone analyses a position:
 
 1. `GET /api/resolve`: a name (Sesame/SIMBAD) or typed coordinates → decimal degrees. Fast stars are moved
    to where they were when SPHEREx looked (Barnard's Star is 4.5′ from its J2000 position).
@@ -60,7 +70,7 @@ pipeline/     blink.py and spectrum.py: the ordered steps of each long request
 | Overlay Gaia / WISE | layer checkboxes → `/api/overlay`; Gaia positions moved with their proper motions |
 | Coordinates in the URL, embeddable | every option lives in the URL; `&embed=1` shows only the player |
 | Metadata and contamination flags | "About this image": flags on the target, flagged pixels painted or hidden, quality keys |
-| Astropy, Aladin | astropy + reproject in the backend; Aladin Lite for "the same field seen by other telescopes" |
+| Astropy, Aladin | astropy + reproject in the backend; Aladin Lite as the home map (pick a field by clicking) and for "the same field seen by other telescopes" |
 
 ## Status
 
@@ -89,6 +99,15 @@ Spectra (validated on 2026-11-15 with eps Ind B, all 463 images, from Chile in 1
   (H₂O at 1.4 and 1.9 µm, CH₄ from 2.2 to 3.5 µm) are clear;
 - not handled: saturated targets (Barnard, R Dra; RW Aur at some wavelengths) get no point there; their
   variability can be followed with the PSF wings in relative units (validation notebook 04), not yet here.
+
+Sky map notes (checked 2026-11-15):
+- Aladin Lite 3.8.2 is bundled from npm (`aladin-lite`), not loaded from the CDS server: that server
+  answered 404 on 15 Nov, and so did the CDS survey tiles. Surveys are loaded from IRSA's copies
+  (`irsa.ipac.caltech.edu/data/hips/...`, CORS open). The map needs WebGL2; without it the page says so.
+- The SPHEREx all-sky cube is shown at one channel (2.04 µm). Aladin turns a slice number into a
+  frequency assuming evenly spaced channels; slice 17 loads cube frame 43 (measured in the browser).
+- In the blink, flagged pixels are filled from the surrounding sky for display only ("Paint flags" shows
+  where they are; measurements never use filled pixels).
 
 ## Run locally
 
