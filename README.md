@@ -45,8 +45,8 @@ What happens when someone analyses a position:
    with the wavelength and pixel solid angle of that exact pixel from the calibration maps, and returns the
    points grouped by survey pass, so passes can be compared at the same wavelength.
 6. `GET /api/variability`: same job mechanism. Measures the target and comparison stars on every image
-   (wide and deep surveys, up to 600 images) and returns the light curve, the verdict, a period when the
-   sampling supports one, and the median per survey pass and wavelength band.
+   (wide and deep surveys, up to 240 images, 12 comparison stars) and returns the light curve, the
+   verdict (does it change compared with its neighbours?) and the median per survey pass and band.
 
 Every image is read from S3 with 4 HTTP Range requests (6 with the variance): the headers, the rows of
 IMAGE around the position, the FLAGS row index and the compressed rows, decoded with astropy's RICE
@@ -78,7 +78,7 @@ pipeline/     blink.py, spectrum.py, variability.py: the ordered steps of each l
 | Spectra on the fly | "Measure the spectrum" → `/api/spectrum`: one point per image, 0.75–5 µm, one colour per pass |
 | See what changed or moved | "What changed" view: each pass against the reference, relative to each star's brightness; constant stars stay grey, brighter = orange, fainter = blue, a moving star shows both side by side |
 | Add or subtract images of different dates | stacks per survey pass; "Difference" view (pass − reference pass); "Add / subtract" tab: any frames in group A minus any in group B, computed in the browser from the aligned values |
-| See how the sky changes over time | "Brightness changes" → `/api/variability`: light curve against constant stars, verdict and period |
+| See how the sky changes over time | "Brightness changes" → `/api/variability`: light curve against constant stars and a verdict: does it change compared with its neighbours? |
 | Choose the field of view | 3–20 arcmin |
 | Overlay Gaia / WISE | layer checkboxes → `/api/overlay`; Gaia positions moved with their proper motions |
 | Coordinates in the URL, embeddable | every option lives in the URL; `&embed=1` shows only the player |
@@ -134,14 +134,18 @@ Brightness changes (validated on 2026-11-15, notebook 04 and the backend on the 
   minus the sky at 20–28 px), in relative units. Barnard's Star (quiet) shows the wings can fake changes
   up to ~15 %, so the threshold is higher for them;
 - verdict: variable when the scatter is above max(3 × comparison scatter, 5 %), or 15 % with wings. The
-  5 % floor is the smallest change recovered in an injection test (10 % sinusoid → 9.5 %, right period);
-- period (Lomb–Scargle) only when power ≥ 0.25, the images span ≥ 1.5 periods without a gap longer than
-  half a period, and the comparison stars show no period (power < 0.1);
-- results: eps Ind B no change (5.2 % against 3.5 % for 12 comparison stars); RW Aur variable (41 %
-  against 3.1 %, medians ×0.86, ×1.01, ×1.22 in its three passes, and a colour change); Barnard no change
-  above 15 %; R Dra (saturated, 600 images) repeats every 244.6 days, its catalogue period is ~245 d;
-- speed on Render's free plan: ~0.3 images/s, so a 335-image light curve takes ~20 min. Results are
-  cached on disk until the service restarts.
+  5 % floor is the smallest change recovered in an injection test (10 % sinusoid → 9.5 %);
+- results with the current settings (240 images at most, 12 comparison stars, checked 2026-11-15):
+  eps Ind B no change (5.7 % against 3.6 %); RW Aur variable (41 % against 3.0 %, and a colour change);
+  R Dra variable through its wings (31 % against 2.5 %); Barnard no change above 15 % (wings, 9.3 %).
+  3–4.5 min each from Chile;
+- speed on Render's free plan: ~0.3 images/s, so up to ~13 min. Results are cached on disk until the
+  service restarts.
+- Tried and removed (for a future project): a period search (Lomb–Scargle, reported only when power
+  ≥ 0.25, ≥ 1.5 cycles, no gap over half a period and no period in the comparison stars). It worked:
+  R Dra gave 244.6 d with 600 images (catalogue ~245 d). But it needed 600 images and 30 comparison
+  stars, ~20 min per object on Render, and the challenge only asks whether the sky changes. Removed
+  on 15 Nov 2026 (commit "drop the period search"); the code is in the git history.
 
 Add / subtract (checked in the browser on 2026-11-15):
 - each frame's aligned values (MJy/sr, sky removed, flagged pixels as NaN) are served as a float16 file

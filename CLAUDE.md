@@ -111,12 +111,15 @@ Code style: small functions with clear names and comments that say why; no dense
 
 ## Validated on 2026-11-15 (light curves, add/subtract, deploy)
 
-- `/api/variability` (backend, 240 images): eps Ind B no change (5.2 % vs 3.5 % for 12 comparison stars);
-  RW Aur variable (41 % vs 3.1 %; passes ×0.86, ×1.01, ×1.22); Barnard no change above 15 % (wings).
-  R Dra needed 600 images (`variability_max_images`) for P = 244.6 d, power 0.27.
+- `/api/variability` answers only "does it change compared with its neighbours?" (240 images, 12
+  comparison stars): eps Ind B no change (5.7 % vs 3.6 %), RW Aur variable (41 % vs 3.0 %), R Dra
+  variable with wings (31 % vs 2.5 %), Barnard no change above 15 %. Use the resolved position with
+  proper motion: a 27″ error on eps Ind B gave a false "varies 124 %" (aperture on empty sky).
+- The period search was built and removed (Maxi, 15 Nov): R Dra gave 244.6 d with 600 images, but it
+  cost ~20 min per object on Render and is outside the challenge. In git history if a future project
+  wants it.
 - Rules in `spectra/variability.py`: wings only when the aperture fails on ≥ 30 % of images
-  (`SATURATED_SHARE`); verdict threshold max(3 × comparison scatter, 5 %), 15 % with wings; period only if
-  power ≥ 0.25, span ≥ 1.5 P, largest gap < 0.5 P and comparison-star power < 0.1. Comparison stars need
+  (`SATURATED_SHARE`); verdict threshold max(3 × comparison scatter, 5 %), 15 % with wings. Comparison stars need
   a 301 × 301 px piece (`variability_cutout_half_px = 150`); 161 px found too few.
 - Stacks, differences and add/subtract use the per-pixel median of every recorded pixel except
   detector defects (`flags.DETECTOR_DEFECTS`). Hiding every flagged pixel (HALO, SUR_ERROR sit on
