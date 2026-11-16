@@ -609,27 +609,6 @@ export interface components {
             /** Y Frac */
             y_frac: number;
         };
-        /** PeriodInfo */
-        PeriodInfo: {
-            /** Period D */
-            period_d: number;
-            /**
-             * Power
-             * @description Lomb–Scargle power, 0 to 1.
-             */
-            power: number;
-            /** Span D */
-            span_d: number;
-            /** Largest Gap D */
-            largest_gap_d: number;
-            /**
-             * Supported
-             * @description False when the sampling cannot support this period.
-             */
-            supported: boolean;
-            /** Reference Power */
-            reference_power?: number | null;
-        };
         /**
          * ReferencePoint
          * @description A comparison star on one image (same kind of residual as the target's).
@@ -902,7 +881,6 @@ export interface components {
             passes: components["schemas"]["VariabilityPass"][];
             /** Bands */
             bands: components["schemas"]["BandRow"][];
-            period: components["schemas"]["PeriodInfo"] | null;
             verdict: components["schemas"]["Verdict"];
             /** Method */
             method: {

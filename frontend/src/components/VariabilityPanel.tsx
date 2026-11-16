@@ -91,19 +91,14 @@ function mjdToDate(mjd: number): string {
 
 function VariabilityResultView({ result }: { result: VariabilityResult }) {
   const curve = result.light_curve;
-  const [fold, setFold] = useState(false);
-  const period = result.period?.supported ? result.period.period_d : null;
   const allMjd = [
     ...curve.map((c) => c.mjd),
     ...result.reference.map((c) => c.mjd),
   ];
   const t0 = Math.min(...allMjd);
-  const t1 = Math.max(...allMjd);
-  const xValue = (mjd: number) =>
-    fold && period ? ((mjd - t0) / period) % 1 : mjd;
-  const [xMin, xMax] = fold && period ? [0, 1] : [t0, t1 + 1e-6];
+  const t1 = Math.max(...allMjd) + 1e-6; // avoids dividing by zero with a single date
   const x = (mjd: number) =>
-    M.left + ((xValue(mjd) - xMin) / (xMax - xMin)) * (W - M.left - M.right);
+    M.left + ((mjd - t0) / (t1 - t0)) * (W - M.left - M.right);
   const y = (residual: number) => {
     const v = Math.min(Math.max(residual, Y_RANGE[0]), Y_RANGE[1]);
     const f =
@@ -143,14 +138,6 @@ function VariabilityResultView({ result }: { result: VariabilityResult }) {
           {result.wing_share > 0 &&
             `, ${Math.round(100 * result.wing_share)} % through the PSF wings (saturated)`}
         </dd>
-        <dt>Period</dt>
-        <dd>
-          {result.period
-            ? result.period.supported
-              ? `repeats every ${result.period.period_d.toFixed(1)} days (power ${result.period.power.toFixed(2)})`
-              : "none that this sampling can support"
-            : "not enough images"}
-        </dd>
       </dl>
 
       <div className="legend">
@@ -179,16 +166,6 @@ function VariabilityResultView({ result }: { result: VariabilityResult }) {
           </svg>
           constant stars
         </span>
-        {period && (
-          <label className="log-toggle">
-            <input
-              type="checkbox"
-              checked={fold}
-              onChange={(e) => setFold(e.target.checked)}
-            />{" "}
-            Fold on {period.toFixed(1)} d
-          </label>
-        )}
       </div>
       <svg
         viewBox={`0 0 ${W} ${H}`}
@@ -237,10 +214,10 @@ function VariabilityResultView({ result }: { result: VariabilityResult }) {
           </circle>
         ))}
         <text className="tick" x={M.left} y={H - 8}>
-          {fold && period ? "phase 0" : mjdToDate(t0)}
+          {mjdToDate(t0)}
         </text>
         <text className="tick" x={W - M.right} y={H - 8} textAnchor="end">
-          {fold && period ? "phase 1" : mjdToDate(t1)}
+          {mjdToDate(t1)}
         </text>
         <text
           className="axis"
@@ -248,7 +225,7 @@ function VariabilityResultView({ result }: { result: VariabilityResult }) {
           y={H - 8}
           textAnchor="middle"
         >
-          {fold && period ? `phase (period ${period.toFixed(1)} d)` : "date"}
+          date
         </text>
       </svg>
 
@@ -348,13 +325,6 @@ function VariabilityInfo() {
           (measured on Barnard's Star, which is quiet), so the threshold is
           higher.
         </dd>
-        <dt>Period</dt>
-        <dd>
-          A Lomb–Scargle periodogram. A period is given only when the images
-          cover at least 1.5 cycles without long gaps, and the constant stars
-          show no period: three groups of images six months apart cannot fix a
-          period of days.
-        </dd>
         <dt>Passes and bands</dt>
         <dd>
           The median of each survey pass, and of each band in each pass: a
@@ -363,9 +333,9 @@ function VariabilityInfo() {
       </dl>
       <p className="small muted">
         Checked: eps Ind B (constant) 3.8 % against 4.0 % for its comparison
-        stars; a 10 % sinusoid injected into it is recovered as 9.5 % with the
-        right period; RW Aur varies (34 % against 2.7 %) and changes colour; R
-        Dra (saturated) repeats every 244.8 days, its catalogue period.
+        stars; a 10 % sinusoid injected into it is recovered as 9.5 %; RW Aur
+        varies (34 % against 2.7 %) and changes colour; R Dra (saturated) varies
+        through its wings (25 % against 2.5 %).
       </p>
     </InfoNote>
   );
