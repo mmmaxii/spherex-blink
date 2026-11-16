@@ -940,6 +940,10 @@ dialog.info li {
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
+  /* Measured contrast (WCAG): white on the filled blue 5.3:1 (#3987e5 gave 3.6:1, too low for the
+     small µm labels); control borders 3.0:1 against the page (#39404c gave 1.8:1). */
+  --accent-fill: #2a6bc2;
+  --control-border: #5a6374;
   color-scheme: dark;
   position: fixed;
   inset: 0;
@@ -977,6 +981,25 @@ dialog.info li {
 .topbar-actions button {
   display: inline-flex;
   align-items: center;
+}
+
+.workbench button,
+.workbench select,
+.workbench input:not([type="checkbox"]):not([type="range"]) {
+  border-color: var(--control-border);
+}
+
+.workbench button.primary,
+.workbench button[aria-pressed="true"],
+.workbench button[aria-selected="true"],
+.workbench .segmented button[aria-checked="true"] {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: #ffffff;
+}
+
+.workbench .link-button {
+  border: 0;
 }
 
 .workbench-body {
@@ -1078,17 +1101,83 @@ dialog.info li {
   max-width: min(100%, calc(100dvh - 300px));
 }
 
-.stage-empty {
+/* Before there is a picture: a neutral box (the dark blue means "no data" inside a picture). */
+.workbench .stage-empty {
   display: grid;
   place-items: center;
   color: var(--muted);
   text-align: center;
   padding: 16px;
+  background: var(--panel);
+  border: 1px dashed var(--control-border);
+}
+
+/* Blink view: the player, and on its right the layers and the files to take away. */
+.blink-view:not([hidden]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 20px;
+  align-items: start;
+}
+
+.blink-main {
+  min-width: 0;
+}
+
+.blink-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #0f1217;
+}
+
+.blink-side h3 {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.blink-side .layers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0;
+}
+
+.blink-side p {
+  margin: 0;
+}
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 4px 10px;
+  border: 1px solid var(--accent-fill);
+  border-radius: 6px;
+  background: var(--accent-fill);
+  color: #ffffff;
+  text-decoration: none;
+  text-align: center;
 }
 
 .workbench .spectrum,
 .workbench .variability {
   margin-top: 0;
+}
+
+@media (max-width: 1100px) {
+  .blink-view:not([hidden]) {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Phones and narrow windows: the page scrolls, the stage comes first and the controls under it. */
@@ -1121,6 +1210,10 @@ dialog.info li {
   .workbench .controls,
   .workbench .aladin {
     max-width: 100%;
+  }
+
+  .blink-view:not([hidden]) {
+    grid-template-columns: 1fr;
   }
 
   .stage-tabs {

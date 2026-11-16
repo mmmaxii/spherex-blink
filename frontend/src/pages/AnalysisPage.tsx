@@ -23,6 +23,7 @@ import {
   DetectorsInfo,
   PlayerInfo,
 } from "../content/explanations";
+import { fileStem } from "../state/download";
 import { rememberAnalysis } from "../state/recent";
 import {
   FOV_ARCMIN_OPTIONS,
@@ -74,6 +75,8 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState<StageTab>("blink");
   const [notesOpen, setNotesOpen] = useState(false);
+  // Raised by "Refresh": asks for the position, the coverage and the images again.
+  const [reload, setReload] = useState(0);
   const overlayRequests = useRef(new Set<string>());
   // A catalogue that could not be loaded: shown next to the layers, and its layer is switched off.
   const [overlayError, setOverlayError] = useState<string | null>(null);
@@ -134,7 +137,7 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
       });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.target, state.ra, state.dec]);
+  }, [state.target, state.ra, state.dec, reload]);
 
   // Keep this analysis in the browser's recent list (the menu of the sky page).
   useEffect(() => {
@@ -211,6 +214,13 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
         });
     }
   }, [target, state.fovArcmin, state.layers]);
+
+  // Start the field again: a failed step (or a catalogue that was not answering) gets a new try.
+  // Finished results come straight from the server's store, so this is quick when all went well.
+  const refresh = () => {
+    setOverlayError(null);
+    setReload((n) => n + 1);
+  };
 
   // A new search forgets the detector, so the one with most images is picked again.
   const search = (query: Query) => update({ ...query, detector: null });
@@ -324,6 +334,9 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
           </p>
         )}
         <div className="topbar-actions">
+          <button onClick={refresh} title="Ask the server again for this field">
+            ↻ Refresh
+          </button>
           <button onClick={copyLink}>{copied ? "Copied" : "Copy link"}</button>
           <button onClick={() => setNotesOpen(true)}>
             <span className="info-mark" aria-hidden="true">
@@ -397,16 +410,6 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
             </section>
           )}
 
-          <section>
-            <h3>Layers</h3>
-            <LayerToggles
-              layers={state.layers}
-              overlays={overlays}
-              onLayers={(layers) => update({ layers })}
-            />
-            {overlayNotice}
-          </section>
-
           {/* The field is chosen on the sky map; here it can still be changed by hand. */}
           <details className="notes">
             <summary>Change position</summary>
@@ -445,27 +448,58 @@ export function AnalysisPage({ onHome }: { onHome: () => void }) {
 
           {/* Every view stays mounted and is only hidden: a spectrum being measured keeps going
               while another view is on screen. */}
-          <div className="stage-view" hidden={shownTab !== "blink"}>
-            {result ? (
-              <Player
-                key={result.key}
-                result={result}
-                view={state.view}
+          <div className="stage-view blink-view" hidden={shownTab !== "blink"}>
+            <div className="blink-main">
+              {result ? (
+                <Player
+                  key={result.key}
+                  result={result}
+                  view={state.view}
+                  layers={state.layers}
+                  overlays={overlays}
+                  onView={(view) => update({ view })}
+                  onLayers={(layers) => update({ layers })}
+                  compact
+                />
+              ) : (
+                !error && (
+                  <div className="stage stage-empty">
+                    <p>
+                      {progress
+                        ? `${progress.stage}…`
+                        : "Waiting for the images"}
+                    </p>
+                  </div>
+                )
+              )}
+            </div>
+            {/* Right of the picture: what is drawn over it, and the files to take away. */}
+            <aside className="blink-side" aria-label="Layers and export">
+              <h3>Layers</h3>
+              <LayerToggles
                 layers={state.layers}
                 overlays={overlays}
-                onView={(view) => update({ view })}
                 onLayers={(layers) => update({ layers })}
-                compact
               />
-            ) : (
-              !error && (
-                <div className="stage stage-empty">
-                  <p>
-                    {progress ? `${progress.stage}…` : "Waiting for the images"}
-                  </p>
-                </div>
-              )
-            )}
+              {overlayNotice}
+              <h3>Export</h3>
+              {result ? (
+                <a
+                  className="button-link"
+                  href={result.gif_url}
+                  download={`spherex-blink-${fileStem(target)}-D${result.detector}.gif`}
+                >
+                  Download the animation (GIF)
+                </a>
+              ) : (
+                <p className="muted small">
+                  Available once the images are ready.
+                </p>
+              )}
+              <p className="muted small">
+                Spectrum data: in the Spectrum view, once it is measured.
+              </p>
+            </aside>
           </div>
           {target && (
             <>
