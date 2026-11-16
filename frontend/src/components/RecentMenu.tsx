@@ -18,7 +18,7 @@ export function RecentMenu({ open, recent, onToggle, onOpen, onShow }: Props) {
         aria-controls="recent-drawer"
         onClick={onToggle}
       >
-        <span aria-hidden="true">☰</span> SPHEREx Blink
+        <span aria-hidden="true">☰</span> History
       </button>
       {open && (
         <aside
