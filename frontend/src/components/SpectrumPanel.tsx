@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { SpectrumInfo } from "../content/explanations";
+import { downloadText, fileStem, toCsv } from "../state/download";
 import {
   ApiError,
   getSpectrum,
@@ -69,8 +70,53 @@ export function SpectrumPanel({ target, ready }: Props) {
         </p>
       )}
       {error && <p className="notice">{error}</p>}
-      {result && <SpectrumChart result={result} />}
+      {result && (
+        <>
+          <SpectrumChart result={result} />
+          <p className="actions">
+            <button onClick={() => downloadSpectrum(result, target)}>
+              Download the spectrum data (CSV)
+            </button>
+          </p>
+        </>
+      )}
     </section>
+  );
+}
+
+/** Every measured point as a CSV table: one line per image, with its errors and quality flags. */
+function downloadSpectrum(result: SpectrumResult, target: Target) {
+  const columns = [
+    "lambda_um",
+    "bandwidth_um",
+    "flux_mjy",
+    "flux_err_mjy",
+    "stat_err_mjy",
+    "pass_index",
+    "mjd",
+    "date_utc",
+    "detector",
+    "collection",
+    "obs_id",
+    "background_mjysr",
+    "n_bad_px",
+    "lost_fraction",
+    "suspect",
+    "lambda_source",
+    "flags",
+  ] as const;
+  const rows = result.points.map((p) =>
+    columns.map((c) => (c === "flags" ? p.flags.join(";") : p[c])),
+  );
+  const comments = [
+    `SPHEREx Blink spectrum of ${target.name ?? "a position"} (RA ${target.ra_deg.toFixed(6)} deg, Dec ${target.dec_deg.toFixed(6)} deg)`,
+    `Data: ${result.collections.join(" + ")} (NASA/IPAC IRSA, DOI 10.26131/IRSA678). One line per image.`,
+    "flux_err_mjy includes a 3 % calibration term in quadrature; stat_err_mjy is the statistical part only.",
+    "suspect = far from the same-pass points at the same wavelength (shown hollow on the page).",
+  ];
+  downloadText(
+    `spherex-spectrum-${fileStem(target)}.csv`,
+    toCsv(comments, [...columns], rows),
   );
 }
 
