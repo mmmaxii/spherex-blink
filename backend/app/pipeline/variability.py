@@ -1,12 +1,11 @@
 """The variability pipeline: a sky position → its light curve, compared with constant stars around it.
 
 Steps:
-  1. search     every image of the position, wide and deep surveys (the deep fields near the ecliptic
-                poles are observed almost continuously: that is what gives periods)   data/sia.py
+  1. search     every image of the position, wide and deep surveys                   data/sia.py
   2. thin       at most `variability_max_images`, spread evenly in time
   3. compare    comparison stars detected in a sample of images                       spectra/variability.py
   4. measure    target (aperture, or PSF wings when saturated) and comparison stars on every image
-  5. analyse    residuals at the same wavelength, scatter vs constant stars, passes, bands, period
+  5. analyse    residuals at the same wavelength, scatter vs constant stars, passes, bands
 """
 
 from dataclasses import asdict, dataclass
@@ -26,7 +25,7 @@ from ..spectra import variability
 from .common import for_each_image, read_cutout_with_retries, start_job, weekly_tag
 
 KIND = "variability"
-PIPELINE_VERSION = "1"
+PIPELINE_VERSION = "2"
 SAMPLE_IMAGES = 16  # images used to find the comparison stars
 
 NOTES = [

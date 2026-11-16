@@ -98,9 +98,10 @@ class Settings(BaseSettings):
     suspect_factor: float = 2.0  # a point this far from its same-pass neighbours is marked suspect
 
     # Variability (validation notebook maxi/04): target + comparison stars on every image.
-    # Images read for one light curve (wide + deep surveys). R Dra (deep field, 2424 images): 240
-    # gave P = 223 d with power 0.20 (not reported); 600 gave P = 244.6 d, power 0.27 (catalogue ~245 d).
-    variability_max_images: int = 600
+    # Images read for one light curve (wide + deep surveys), spread evenly in time. 240 gave the
+    # validated verdicts (eps Ind B constant, RW Aur variable, Barnard constant). No period is searched,
+    # so more images only cost time (~0.3 images/s on Render's free plan).
+    variability_max_images: int = 240
     variability_cutout_half_px: int = 150  # 301 x 301 px: comparison stars within ~14′ (notebook: 21 stars)
 
     # --- Web -----------------------------------------------------------------------------------

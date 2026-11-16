@@ -303,15 +303,6 @@ class BandRow(BaseModel):
     passes: dict[str, BandCell]
 
 
-class PeriodInfo(BaseModel):
-    period_d: float
-    power: float = Field(description="Lomb–Scargle power, 0 to 1.")
-    span_d: float
-    largest_gap_d: float
-    supported: bool = Field(description="False when the sampling cannot support this period.")
-    reference_power: float | None = None
-
-
 class Verdict(BaseModel):
     variable: bool | None
     threshold: float = Field(description="Scatter above which the target is called variable.")
@@ -335,7 +326,6 @@ class VariabilityResult(BaseModel):
     wing_share: float = Field(description="Share of target points measured on the PSF wings.")
     passes: list[VariabilityPass]
     bands: list[BandRow]
-    period: PeriodInfo | None
     verdict: Verdict
     method: dict
     skipped: list[SkippedImage]

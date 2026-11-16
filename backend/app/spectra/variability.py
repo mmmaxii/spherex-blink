@@ -13,15 +13,15 @@ Method validated on 15 Nov 2026 (validation/notebooks/maxi/04; prototype script 
   3. Saturated targets: where the core of the star is flagged (more than 20 % of its light lost),
      the PSF wings are used instead: median of a 9–14 px ring outside the flagged core, minus the
      sky at 20–28 px. At one wavelength it is proportional to the star's flux, so its residuals
-     follow the variability in relative units (R Dra: period 244.8 d, catalogue ~245 d).
+     follow the variability in relative units (R Dra, a Mira, is clearly variable this way).
      Limit, measured on Barnard's Star (quiet): wings scatter ~10 % and can fake ±20–30 % changes
      in the most saturated bands, so with wings only large changes are reported.
-  4. Period: Lomb–Scargle on the residuals (outliers beyond 5 sigma removed), reported only when the
-     sampling can support it (see `period_search`).
+  4. Verdict: the target is variable when its scatter is clearly above the comparison stars'. No
+     period is searched: the question here is only "does it change, compared with its neighbours?".
 
 Validation results: eps Ind B scatter 3.8 % vs 4.0 % for comparison stars (constant), injected
-10 % sinusoids recovered as 9.5 % with the right period; RW Aur 34 % vs 2.7 % (variable, brighter
-in the blue and fainter at 4–5 µm between passes); R Dra 25 % vs 2.5 % with wings, P = 244.8 d.
+10 % sinusoids recovered as 9.5 %; RW Aur 34 % vs 2.7 % (variable, brighter
+in the blue and fainter at 4–5 µm between passes); R Dra 25 % vs 2.5 % with wings (variable).
 """
 
 import math
@@ -30,7 +30,6 @@ from dataclasses import dataclass, replace
 import numpy as np
 import sep
 from astropy.stats import sigma_clipped_stats
-from astropy.timeseries import LombScargle
 
 from ..config import get_settings
 from ..data import calibration
@@ -152,7 +151,7 @@ def choose_comparisons(
     target_ra: float,
     target_dec: float,
     max_radius_arcsec: float,
-    max_stars: int = 30,
+    max_stars: int = 12,  # enough for a stable "constant star" scatter (eps Ind B: 12); each costs time
 ) -> list[tuple[float, float]]:
     """Stars seen in at least half of the sample images, isolated (no neighbour within 30″), more
     than 25″ from the target and within `max_radius_arcsec`; brightest first."""
@@ -228,30 +227,6 @@ def target_light_curve(points: list[StarPoint]) -> list[dict]:
     return curve
 
 
-def period_search(mjd: list[float], residual: list[float]) -> dict | None:
-    """Lomb–Scargle best period between 2 and 1000 days. Reported only when the data can support it:
-    power ≥ 0.25, at least 1.5 cycles in the time span, and no gap longer than half a period
-    (three clumps of images six months apart cannot fix a period of days)."""
-    t, r = np.asarray(mjd), np.asarray(residual)
-    keep = np.abs(r - np.median(r)) < 5 * (robust_scatter(list(r)) or np.inf)
-    t, r = t[keep], r[keep]
-    if len(t) < 20:
-        return None
-    frequency, power = LombScargle(t, r).autopower(minimum_frequency=1 / 1000, maximum_frequency=1 / 2)
-    best = int(np.argmax(power))
-    period_d = float(1 / frequency[best])
-    span_d = float(t.max() - t.min())
-    largest_gap_d = float(np.max(np.diff(np.sort(t)))) if len(t) > 1 else span_d
-    supported = power[best] >= 0.25 and span_d >= 1.5 * period_d and largest_gap_d < 0.5 * period_d
-    return {
-        "period_d": period_d,
-        "power": float(power[best]),
-        "span_d": span_d,
-        "largest_gap_d": largest_gap_d,
-        "supported": bool(supported),
-    }
-
-
 def bands_by_pass(curve: list[dict]) -> list[dict]:
     """Median residual of each SPHEREx band in each survey pass: shows whether a change depends on
     wavelength (a colour change) or not."""
@@ -289,7 +264,7 @@ def verdict(target_scatter: float | None, reference_scatter: float | None, wing_
 
 
 def analyse(points: list[StarPoint]) -> dict:
-    """Everything the page shows: light curve, reference scatter, passes, bands, period, verdict."""
+    """Everything the page shows: light curve, reference scatter, passes, bands and the verdict."""
     target = sorted((p for p in points if p.star == 0), key=lambda p: p.mjd)
     curve = target_light_curve(target)
     comparison_scatters, reference_cloud = [], []
@@ -328,13 +303,6 @@ def analyse(points: list[StarPoint]) -> dict:
             }
         )
 
-    period = period_search([c["mjd"] for c in curve], [c["residual"] for c in curve]) if curve else None
-    if period and reference_cloud:  # the same search on the constant stars: should find nothing
-        null = period_search([c["mjd"] for c in reference_cloud], [c["residual"] for c in reference_cloud])
-        period["reference_power"] = null["power"] if null else None
-        if null and null["power"] >= 0.1:
-            period["supported"] = False
-
     # Keep the reference cloud small for the page (it can have thousands of points).
     step = max(1, len(reference_cloud) // 1500)
     return {
@@ -346,7 +314,6 @@ def analyse(points: list[StarPoint]) -> dict:
         "wing_share": wing_share,
         "passes": passes,
         "bands": bands_by_pass(curve),
-        "period": period,
         "verdict": verdict(target_scatter, reference_scatter, wing_share),
     }
 

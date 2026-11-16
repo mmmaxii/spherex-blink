@@ -80,20 +80,6 @@ def test_wings_need_a_larger_change():
     assert "wings" in result["verdict"]["text"]
 
 
-def test_period_is_found_with_continuous_sampling():
-    t = np.arange(0, 520, 2.0)
-    r = 1 + 0.3 * np.sin(2 * math.pi * t / 245) + RNG.normal(0, 0.03, len(t))
-    found = variability.period_search(list(t), list(r))
-    assert found["supported"] and found["period_d"] == pytest.approx(245, rel=0.05)
-
-
-def test_period_is_refused_with_three_clumps():
-    t = three_passes()
-    r = 1 + 0.3 * np.sin(2 * math.pi * t / 10) + RNG.normal(0, 0.03, len(t))
-    found = variability.period_search(list(t), list(r))
-    assert found["supported"] is False
-
-
 @pytest.fixture
 def fake_calibration(monkeypatch):
     monkeypatch.setattr(calibration, "at", lambda det, x, y: calibration.PixelCalibration(2.5, 0.07, 37.8))
